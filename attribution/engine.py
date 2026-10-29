@@ -4,25 +4,32 @@ It loads the inputs from a folder, runs the macro layer, Brinson and the
 factor model, assembles and validates the :class:`attribution.outputs.Result`,
 and returns it. The app never needs to call those modules directly.
 
-Active return
--------------
-Both views explain the same number:
+Which return series each view is built on
+------------------------------------------
+Write ``r_gross`` for the holdings-based portfolio return (holdings x prices,
+blended with cash at the equity weight), ``r_net`` for the reported return
+(net of fees) and ``r_policy = w_pol * r_benchmark + (1 - w_pol) * r_cash``
+for the policy benchmark (the benchmark itself when the policy is 100% equity).
 
-    active = prod(1 + r_net) - prod(1 + r_policy)
+* DECISION VIEW, four layers - macro (exposure timing only), allocation,
+  selection, interaction - built on ``r_gross`` vs ``r_policy`` and linked
+  with coefficients computed on that GROSS pair. They sum to
 
-where ``r_net`` is the reported portfolio return (net of fees) and
-``r_policy = w_pol * r_benchmark + (1 - w_pol) * r_cash`` is the policy
-benchmark (just the benchmark when the policy is 100% equity).
+      gross active = prod(1 + r_gross) - prod(1 + r_policy)
 
-* Decision view, per period:
-  ``r_net - r_policy = exposure + w_eq*(allocation + selection + interaction) + (r_net - r_gross)``.
-  The last term is the gross-to-net cost; it sits in the macro layer as its
-  own named component next to the exposure effect (as the README requires),
-  so nothing is hidden inside allocation or selection.
-* Factor view, per period: ``r_net - r_policy = sum_k beta_k f_k,t + specific_t``.
+* COST LINE - fees and trading costs, in the same cumulative space:
 
-Both are Carino-linked (or Menchero, if configured) against the same two
-return series, so both totals equal the geometric active return.
+      cost = prod(1 + r_net) - prod(1 + r_gross)
+      gross active + cost = net active
+
+* FACTOR VIEW - built on ``r_net`` vs ``r_policy``, linked on that NET pair.
+  It sums to
+
+      net active = prod(1 + r_net) - prod(1 + r_policy)
+
+So the decision view spans gross and net (four layers, then the cost line),
+and the factor view is net throughout. The gate checks each identity
+separately.
 
 Inputs (CSV or Parquet, by these names): holdings, benchmark, prices,
 portfolio_returns, factor_returns, cash_returns, regime_series; policy.json
@@ -42,8 +49,8 @@ import numpy as np
 import pandas as pd
 
 from attribution import __version__, io
-from attribution.brinson import EFFECTS, by_sector_summary, link_multi_period, run_decision_attribution
-from attribution.factors import FACTOR_ORDER, MARKET_VS_MACRO_NOTE, build_factor_matrix, fit_factor_model
+from attribution.brinson import EFFECTS, link_multi_period, run_decision_attribution
+from attribution.factors import FACTOR_ORDER, MARKET_VS_MACRO_NOTE, TIMING_TERM_NOTE, build_factor_matrix, fit_factor_model
 from attribution.macro_layer import equity_band
 from attribution.outputs import GrossToNet, InputChecks, Limitation, ReconciliationDetail, Result, RunInfo
 from attribution.result import (
@@ -212,19 +219,17 @@ def run_attribution(
     check_min_months(len(months))
     n = len(months)
 
-    # --- decision view -------------------------------------------------------
+    # --- decision view: four layers on GROSS vs policy ----------------------------
     dec = run_decision_attribution(holdings, benchmark, prices, regime, pol, cash, reported,
                                    variant=cfg.brinson_variant, method=cfg.linking,  # type: ignore[arg-type]
                                    bootstrap=cfg.bootstrap, seed=cfg.seed)
     pp = dec.per_period
     r_net, r_gross, r_pol = pp["r_portfolio_reported"], pp["r_portfolio_gross"], pp["r_policy"]
-    cost = r_net - r_gross
-    dec_cols = pd.DataFrame({"exposure": pp["macro"], **{c: pp[c] for c in EFFECTS}, "gross_to_net": cost})
-    dec_link = link_multi_period(dec_cols, cfg.linking, portfolio_returns=r_net, benchmark_returns=r_pol)  # type: ignore[arg-type]
-    sectors = by_sector_summary(dec.scaled, dec_link.factors)
-    period_gap_dec = float((dec_cols.sum(axis=1) - (r_net - r_pol)).abs().max())
+    layers = dec.linked.totals  # keys: macro, allocation, selection_effect, interaction (gross-linked)
+    sectors = dec.by_sector      # linked with the same gross factors
+    period_gap_dec = float(pp["identity_gap"].abs().max())
 
-    # --- factor view ---------------------------------------------------------
+    # --- factor view: NET vs policy ---------------------------------------------------
     matrix = build_factor_matrix(factor_returns, benchmark, cash)
     active_m = (r_net - r_pol).rename("active")
     model = fit_factor_model(active_m, matrix, order=cfg.factor_order, bootstrap=cfg.bootstrap, seed=cfg.seed)
@@ -232,27 +237,28 @@ def run_attribution(
     fac_link = link_multi_period(fac_cols, cfg.linking, portfolio_returns=r_net, benchmark_returns=r_pol)  # type: ignore[arg-type]
     period_gap_fac = float((fac_cols.sum(axis=1) - active_m).abs().max())
 
-    # --- totals --------------------------------------------------------------
+    # --- totals and the cost line --------------------------------------------------------
     net_cum = float((1 + r_net).prod() - 1)
     gross_cum = float((1 + r_gross).prod() - 1)
     pol_cum = float((1 + r_pol).prod() - 1)
     active = net_cum - pol_cum
+    gross_active = gross_cum - pol_cum
+    cost_line = net_cum - gross_cum
     active_ci = _ci_annual_mean(active_m.to_numpy(), cfg.seed)
 
-    macro_exposure = dec_link.totals["exposure"]
-    macro_cost = dec_link.totals["gross_to_net"]
-    macro_total = macro_exposure + macro_cost
-    decision_total = macro_total + sum(dec_link.totals[c] for c in EFFECTS)
+    layers_total = layers["macro"] + sum(layers[c] for c in EFFECTS)
+    decision_total = layers_total + cost_line
     factor_total = fac_link.linked_sum
     tol = cfg.tolerance
-    reconciliation = Reconciliation.compute(decision_total, factor_total, active, tolerance=tol)
+    reconciliation = Reconciliation.compute(decision_total, factor_total, active, tolerance=tol,
+                                            layers_total=layers_total, gross_active=gross_active)
 
-    # --- gross to net --------------------------------------------------------
-    gap = cost.to_numpy()
+    # --- gross to net (data-consistency check) ----------------------------------------
+    gap = (r_net - r_gross).to_numpy()
     mean_abs_gap = float(np.abs(gap).mean())
     consistent = mean_abs_gap <= cfg.gross_net_threshold_monthly
     gross_to_net = GrossToNet(
-        gross_cumulative=gross_cum, net_cumulative=net_cum, cost_cumulative=net_cum - gross_cum,
+        gross_cumulative=gross_cum, net_cumulative=net_cum, cost_cumulative=cost_line,
         gross_annualised=_ann(gross_cum, n), net_annualised=_ann(net_cum, n),
         cost_annualised=_ann(net_cum, n) - _ann(gross_cum, n),
         mean_monthly_gap=float(gap.mean()), mean_abs_monthly_gap=mean_abs_gap,
@@ -290,18 +296,19 @@ def run_attribution(
     cash_s = _series(cash)
     decision_view = DecisionView(
         layers=(
-            DecisionLayer("macro", macro_total),
-            DecisionLayer("allocation", dec_link.totals["allocation"]),
-            DecisionLayer("selection", dec_link.totals["selection_effect"]),
-            DecisionLayer("interaction", dec_link.totals["interaction"]),
+            DecisionLayer("macro", layers["macro"]),
+            DecisionLayer("allocation", layers["allocation"]),
+            DecisionLayer("selection", layers["selection_effect"]),
+            DecisionLayer("interaction", layers["interaction"]),
         ),
         by_sector=tuple(rows),
         macro_anatomy=MacroAnatomy(
             average_equity_exposure=float(pp["equity_weight"].mean()),
             policy_equity_exposure=pol.neutral_equity_exposure,
             cash_return=_ann(float((1 + cash_s.reindex(pp.index)).prod() - 1), n),
-            components={"exposure": macro_exposure, "gross_to_net": macro_cost},
+            components={"exposure": layers["macro"]},  # exposure timing ONLY - never costs
         ),
+        cost=cost_line,
     )
     fv_model = model.to_factor_view()
     by_name = {r.factor: r for r in model.rows}
@@ -331,6 +338,7 @@ def run_attribution(
         ),
         period=Period(months[0].to_timestamp(how="end").date(), months[-1].to_timestamp(how="end").date(), n),
         totals=Totals(portfolio=net_cum, benchmark=pol_cum, active=active,
+                      portfolio_gross=gross_cum, active_gross=gross_active,
                       ci=ConfidenceInterval(level=active_ci.level, lower=active_ci.lower, upper=active_ci.upper,
                                             method=active_ci.method + " of annualised mean monthly active return")),
         decision_view=decision_view,
@@ -340,24 +348,33 @@ def run_attribution(
     )
 
     detail = ReconciliationDetail(
-        active_definition="prod(1 + portfolio net) - prod(1 + policy benchmark); policy benchmark = "
+        active_definition="net active = prod(1 + portfolio net) - prod(1 + policy benchmark); policy benchmark = "
                           "w_pol x benchmark + (1 - w_pol) x cash",
+        series_used={
+            "decision_layers": "GROSS portfolio (holdings x prices, cash at equity weight) vs policy benchmark; "
+                               f"{cfg.linking} coefficients on that gross pair",
+            "cost_line": "prod(1 + NET portfolio) - prod(1 + GROSS portfolio)",
+            "factor_view": f"NET portfolio (reported) vs policy benchmark; {cfg.linking} coefficients on that net pair",
+        },
         linking=cfg.linking,
         active_return=active,
+        gross_active=gross_active,
+        decision_layers_total=layers_total,
+        cost_line=cost_line,
         decision_total=decision_total,
         factor_total=factor_total,
+        layers_minus_gross_active=layers_total - gross_active,
+        gross_plus_cost_minus_net=gross_active + cost_line - active,
         decision_minus_active=decision_total - active,
         factor_minus_active=factor_total - active,
         decision_minus_factor=decision_total - factor_total,
         tolerance=tol,
-        passes=bool(abs(decision_total - active) <= tol and abs(factor_total - active) <= tol
-                    and abs(decision_total - factor_total) <= tol),
-        decision_components={"macro_exposure": macro_exposure, "macro_gross_to_net": macro_cost,
-                             "allocation": dec_link.totals["allocation"],
-                             "selection": dec_link.totals["selection_effect"],
-                             "interaction": dec_link.totals["interaction"]},
+        passes=bool(abs(layers_total - gross_active) <= tol and abs(gross_active + cost_line - active) <= tol
+                    and abs(factor_total - active) <= tol and abs(decision_total - factor_total) <= tol),
+        decision_components={"macro": layers["macro"], "allocation": layers["allocation"],
+                             "selection": layers["selection_effect"], "interaction": layers["interaction"]},
         factor_components={**{f: fac_link.totals[f] for f in model.order}, "specific_return": fac_link.totals["specific"]},
-        max_period_identity_gap=max(period_gap_dec, period_gap_fac, float(pp["identity_gap"].abs().max())),
+        max_period_identity_gap=max(period_gap_dec, period_gap_fac),
     )
     inputs = {stem: f"{p.name} sha256:{_sha256(p)}" for stem, p in paths.items()}
     if policy_path is not None:
@@ -392,7 +409,7 @@ def _limitations(cfg: EngineConfig, n: int, dec, model, g2n: GrossToNet, checks:
         add("gross_net_inconsistent", "material",
             f"Holdings x prices and reported returns differ by {g2n.mean_abs_monthly_gap:.2%} a month on average "
             f"(max {g2n.max_abs_monthly_gap:.2%}), above the {g2n.threshold_monthly:.2%} threshold: the two inputs may "
-            "not describe the same portfolio. The gap is NOT labelled as fees.", "gross_to_net", "decision_view.macro")
+            "not describe the same portfolio. The gap is NOT labelled as fees.", "gross_to_net", "decision_view.cost")
     if n < cfg.short_history_months:
         add("short_history", "caution", f"Only {n} months of holdings history (below {cfg.short_history_months}); "
             "estimates, intervals and factor exposures are less reliable.", "decision_view", "factor_view")
@@ -453,6 +470,7 @@ def _limitations(cfg: EngineConfig, n: int, dec, model, g2n: GrossToNet, checks:
             continue  # reported above as factor_collinearity
         add(f"factor_note_{i + 1}", "info", text, "factor_view")
     add("market_vs_macro", "info", MARKET_VS_MACRO_NOTE, "factor_view.market", "decision_view.macro")
+    add("timing_term_not_implemented", "info", TIMING_TERM_NOTE, "factor_view.market", "decision_view.macro")
     add("arithmetic_intervals", "info", "Confidence intervals are on annualised arithmetic means of monthly "
         "contributions; headline lines are geometrically linked cumulative figures.", "decision_view", "factor_view")
     return tuple(out)

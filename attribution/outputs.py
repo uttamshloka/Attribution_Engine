@@ -84,13 +84,33 @@ class GrossToNet:
 
 @dataclass(frozen=True)
 class ReconciliationDetail:
-    """All numbers behind the tie-out; ``passes`` is True only if every difference is within tolerance."""
+    """Every number behind the tie-out.
+
+    Which return series each view is built on:
+
+    * decision layers (macro, allocation, selection, interaction): the GROSS
+      portfolio return (holdings x prices, blended with cash at the equity
+      weight) against the policy benchmark, linked with factors computed on
+      that gross pair - so they sum to GROSS active;
+    * cost line: NET minus GROSS cumulative portfolio return - so gross
+      active + cost = NET active;
+    * factor view: the NET portfolio return against the policy benchmark -
+      so it sums to NET active.
+
+    ``passes`` is True only if every difference is within ``tolerance``.
+    """
 
     active_definition: str
+    series_used: Mapping[str, str]
     linking: str
     active_return: float
+    gross_active: float
+    decision_layers_total: float
+    cost_line: float
     decision_total: float
     factor_total: float
+    layers_minus_gross_active: float
+    gross_plus_cost_minus_net: float
     decision_minus_active: float
     factor_minus_active: float
     decision_minus_factor: float

@@ -8,8 +8,20 @@ import pandas as pd
 import pytest
 
 from attribution import io
-from attribution.sample import SampleConfig, SampleData, generate_sample, main, write_sample
-from attribution.schemas import SECTORS, check_holdings_against_master
+from attribution.sample import (
+    ACTIVE_CAP,
+    ACTIVE_CAP_WIDE,
+    BENCHMARK_SECTOR_BANDS,
+    BENCHMARK_SECTOR_WEIGHTS,
+    MAX_WIDE_SECTORS,
+    SampleConfig,
+    SampleData,
+    generate_sample,
+    main,
+    tilt_diagnostics,
+    write_sample,
+)
+from attribution.schemas import INDEX_NAMES_NOT_SECTORS, SECTORS, check_holdings_against_master
 
 _TABLES = (
     "security_master",
@@ -21,7 +33,22 @@ _TABLES = (
     "cash_returns",
     "regime",
     "characteristics",
+    "true_size_exposure",
 )
+
+
+def _bench_returns(sample: SampleData) -> pd.Series:
+    b = sample.benchmark
+    return (b["weight"] * b["total_return"]).groupby(b["date"]).sum()
+
+
+def _active_sector_weights(sample: SampleData) -> pd.DataFrame:
+    h = sample.holdings.groupby(["date", "sector"])["weight"].sum().unstack(fill_value=0.0)
+    bw = sample.benchmark.pivot(index="date", columns="sector", values="weight")
+    return h.reindex(columns=bw.columns, fill_value=0.0) - bw
+
+
+# --- reproducibility and files -----------------------------------------------
 
 
 def test_reproducible_in_memory() -> None:
@@ -84,36 +111,118 @@ def test_shape(sample: SampleData) -> None:
 
 
 def test_end_date_is_configurable() -> None:
-    data = generate_sample(SampleConfig(end_date=date(2025, 3, 14), n_months=24))
+    data = generate_sample(SampleConfig(end_date=date(2025, 3, 14), n_months=36))
     dates = sorted(data.portfolio_returns["date"])
-    assert len(dates) == 24
+    assert len(dates) == 36
     assert dates[-1] == pd.Timestamp("2025-02-28")
 
 
+# --- taxonomy and benchmark ----------------------------------------------------
+
+
+def test_no_sector_is_an_index_name(sample: SampleData) -> None:
+    used = set(sample.benchmark["sector"]) | set(sample.holdings["sector"]) | set(sample.security_master["sector"])
+    assert "Bankex" not in used
+    assert not used & INDEX_NAMES_NOT_SECTORS
+
+
+def test_benchmark_weights_sum_to_one_and_sit_in_bands(sample: SampleData) -> None:
+    assert sum(BENCHMARK_SECTOR_WEIGHTS.values()) == pytest.approx(1.0, abs=1e-12)
+    assert set(BENCHMARK_SECTOR_WEIGHTS) == set(BENCHMARK_SECTOR_BANDS) == set(SECTORS)
+    for s, (lo, hi) in BENCHMARK_SECTOR_BANDS.items():
+        assert lo <= BENCHMARK_SECTOR_WEIGHTS[s] <= hi, s
+    bw = sample.benchmark.pivot(index="date", columns="sector", values="weight")
+    np.testing.assert_allclose(bw.sum(axis=1), 1.0, atol=1e-12)
+    for s, (lo, hi) in BENCHMARK_SECTOR_BANDS.items():
+        assert bw[s].between(lo, hi).all(), s
+
+
+def test_weights_sum_to_one_every_date(sample: SampleData) -> None:
+    for frame in (sample.holdings, sample.benchmark):
+        sums = frame.groupby("date")["weight"].sum()
+        assert ((sums - 1.0).abs() <= 1e-9).all()
+
+
+# --- portfolio realism ------------------------------------------------------
+
+
+def test_active_sector_weights_respect_caps(sample: SampleData) -> None:
+    worst = _active_sector_weights(sample).abs().max()
+    assert (worst <= ACTIVE_CAP_WIDE).all(), worst[worst > ACTIVE_CAP_WIDE]
+    wide = worst[worst > ACTIVE_CAP]
+    assert len(wide) <= MAX_WIDE_SECTORS, wide
+
+
+def test_no_sector_left_at_zero_unless_tiny_in_benchmark(sample: SampleData) -> None:
+    h = sample.holdings.groupby(["date", "sector"])["weight"].sum().unstack(fill_value=0.0)
+    bw = sample.benchmark.pivot(index="date", columns="sector", values="weight")
+    h = h.reindex(columns=bw.columns, fill_value=0.0)
+    zero = (h == 0.0) & (bw >= 0.02)
+    assert not zero.any().any()
+
+
+# --- the size tilt --------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def tilt(sample: SampleData) -> dict[str, float]:
+    return tilt_diagnostics(sample)
+
+
+def test_size_loading_negatively_correlated_with_log_cap(tilt: dict[str, float]) -> None:
+    assert tilt["corr_size_logcap"] <= -0.60
+
+
+def test_held_names_are_smaller_than_unheld(tilt: dict[str, float]) -> None:
+    assert tilt["held_to_unheld_cap"] <= 0.70
+
+
+def test_active_size_loading_is_positive(tilt: dict[str, float]) -> None:
+    """Changed from an absolute test (portfolio >= +0.30): with sector weights now close to a
+    benchmark dominated by large financials, the absolute loading is not meaningful; the
+    ACTIVE size loading (portfolio minus benchmark) is what the tilt is."""
+    assert tilt["portfolio_size_loading"] - tilt["benchmark_size_loading"] >= 0.30
+    assert tilt["portfolio_size_loading"] > tilt["benchmark_size_loading"]
+
+
 def test_persistent_small_mid_cap_tilt(sample: SampleData) -> None:
-    chars = sample.characteristics.set_index("security_id")
-    size = chars["loading_size"]
-    h = sample.holdings
-    port_size = (h["weight"] * h["security_id"].map(size)).groupby(h["date"]).sum()
-
-    # Benchmark is cap-weighted: rebuild security-level caps from initial caps and returns.
-    prices = sample.prices.pivot(index="date", columns="security_id", values="total_return")
-    caps = prices.shift(1).fillna(0.0).add(1.0).cumprod().mul(chars.loc[prices.columns, "initial_market_cap_cr"])
-    bench_w = caps.div(caps.sum(axis=1), axis=0)
-    bench_size = bench_w.mul(size.loc[prices.columns]).sum(axis=1)
-
-    assert (port_size > bench_size + 0.2).all()
+    ex = sample.true_size_exposure
+    assert ((ex["portfolio"] - ex["benchmark"]) > 0.2).all()
 
 
-def test_crisis_episode(sample: SampleData) -> None:
+def test_universe_size_loading_is_centred(tilt: dict[str, float]) -> None:
+    assert -0.05 <= tilt["universe_size_loading"] <= 0.05
+
+
+def test_active_return_in_target_band(tilt: dict[str, float]) -> None:
+    assert 0.03 <= tilt["active_annualised"] <= 0.06
+
+
+def test_size_explains_at_least_40pct_of_active(tilt: dict[str, float]) -> None:
+    assert tilt["size_share_of_active"] >= 0.40
+
+
+# --- episodes -----------------------------------------------------------------
+
+
+def test_deepest_benchmark_drawdown_is_a_realistic_crisis(sample: SampleData) -> None:
+    wealth = (1 + _bench_returns(sample)).cumprod()
+    dd = wealth / np.maximum.accumulate(np.r_[1.0, wealth.to_numpy()])[1:] - 1
+    assert -0.35 <= dd.min() <= -0.28
+    trough = dd.idxmin()
+    rebound = wealth.loc[trough:].iloc[1:3]
+    assert (rebound > wealth.loc[trough]).all()  # partial rebound follows
+    assert rebound.max() < wealth.loc[:trough].max()  # ...and it is only partial
+
+
+def test_two_regime_episodes(sample: SampleData) -> None:
     r = sample.regime
-    crisis = (r["confirmed_state"] == "crisis").to_numpy()
-    runs = np.diff(np.flatnonzero(np.diff(np.r_[0, crisis.astype(int), 0])))[::2]
-    assert len(runs) == 1
-    assert 55 <= runs[0] <= 65
-    assert r.loc[crisis, "equity_exposure"].eq(0.6).all()
-    # Raw state has false alarms that confirmation removes.
-    assert (r["raw_state"] != r["confirmed_state"]).sum() > 0
+    off = (r["confirmed_state"] != "normal").to_numpy()
+    runs = np.diff(np.flatnonzero(np.diff(np.r_[0, off.astype(int), 0])))[::2]
+    assert len(runs) == 2
+    crisis = r.loc[r["confirmed_state"] == "crisis"]
+    assert 40 <= len(crisis) <= 70 and crisis["equity_exposure"].eq(0.6).all()
+    assert (r["raw_state"] != r["confirmed_state"]).sum() > 0  # false alarms filtered out
 
 
 def test_cash_and_returns_plausible(sample: SampleData) -> None:
@@ -135,52 +244,5 @@ def test_portfolio_return_is_net_of_fees_and_exposure(sample: SampleData) -> Non
 
 
 def test_cli(tmp_path: Path) -> None:
-    assert main(["--out", str(tmp_path), "--months", "24", "--seed", "3"]) == 0
+    assert main(["--out", str(tmp_path), "--months", "36", "--seed", "3"]) == 0
     assert (tmp_path / "holdings.csv").exists()
-
-
-# --- size tilt: the sample must carry a deliberate, coherent small/mid-cap tilt ---
-
-
-@pytest.fixture(scope="module")
-def tilt(sample: SampleData) -> dict[str, float]:
-    from attribution.sample import tilt_diagnostics
-
-    return tilt_diagnostics(sample)
-
-
-def test_size_loading_negatively_correlated_with_log_cap(tilt: dict[str, float]) -> None:
-    assert tilt["corr_size_logcap"] <= -0.60
-
-
-def test_held_names_are_smaller_than_unheld(tilt: dict[str, float]) -> None:
-    assert tilt["held_to_unheld_cap"] <= 0.70
-
-
-def test_portfolio_weighted_size_loading_is_positive(tilt: dict[str, float]) -> None:
-    assert tilt["portfolio_size_loading"] >= 0.30
-
-
-def test_universe_size_loading_is_centred(tilt: dict[str, float]) -> None:
-    assert -0.05 <= tilt["universe_size_loading"] <= 0.05
-
-
-def test_active_return_in_target_band(tilt: dict[str, float]) -> None:
-    assert 0.03 <= tilt["active_annualised"] <= 0.06
-
-
-def test_size_explains_at_least_40pct_of_active(tilt: dict[str, float]) -> None:
-    assert tilt["size_share_of_active"] >= 0.40
-
-
-def test_crisis_benchmark_shape_unchanged(sample: SampleData) -> None:
-    b = sample.benchmark
-    monthly = (b["weight"] * b["total_return"]).groupby(b["date"]).sum()
-    crisis = monthly.loc["2024-07-31":"2024-09-30"].round(4).tolist()
-    assert crisis == [-0.1015, 0.0043, 0.0561]
-
-
-def test_weights_sum_to_one_every_date(sample: SampleData) -> None:
-    for frame in (sample.holdings, sample.benchmark):
-        sums = frame.groupby("date")["weight"].sum()
-        assert ((sums - 1.0).abs() <= 1e-9).all()

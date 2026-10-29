@@ -33,6 +33,7 @@ import pandas as pd
 __all__ = [
     "Sector",
     "SECTORS",
+    "INDEX_NAMES_NOT_SECTORS",
     "Factor",
     "FACTORS",
     "RegimeState",
@@ -65,19 +66,26 @@ __all__ = [
 
 
 class Sector(str, enum.Enum):
-    """The fixed set of 15 BSE sector names used throughout the engine.
+    """The fixed set of 13 sector names used throughout the engine.
 
-    Names follow BSE's sectoral index family. A security belongs to exactly
-    one of these. Changing this list is a contract change: bump
-    ``result.SCHEMA_VERSION`` and update the README.
+    The list is a CONDENSED approximation of the NSE sector classification
+    (the sector level of the NSE Indices industry classification), merged so
+    that no two names overlap:
+
+    * financials of every kind - banks, NBFCs, insurers, AMCs - are
+      ``Financial Services`` (index names such as "Bankex" are not sectors);
+    * oil, gas and consumable fuels are ``Oil & Gas`` (there is no separate
+      "Energy", which would overlap Oil & Gas and Power);
+    * chemicals, construction materials and similar are ``Basic Materials``.
+
+    A security belongs to exactly one of these. Changing this list is a
+    contract change: bump ``result.SCHEMA_VERSION`` and update the README.
     """
 
     AUTO = "Auto"
-    BANKEX = "Bankex"
     BASIC_MATERIALS = "Basic Materials"
     CAPITAL_GOODS = "Capital Goods"
     CONSUMER_DURABLES = "Consumer Durables"
-    ENERGY = "Energy"
     FINANCIAL_SERVICES = "Financial Services"
     FMCG = "FMCG"
     HEALTHCARE = "Healthcare"
@@ -90,7 +98,10 @@ class Sector(str, enum.Enum):
 
 
 SECTORS: tuple[str, ...] = tuple(s.value for s in Sector)
-assert len(SECTORS) == 15
+assert len(SECTORS) == 13
+#: Index names that must never be used as sector names.
+INDEX_NAMES_NOT_SECTORS: frozenset[str] = frozenset({"Bankex", "Bank Nifty", "Nifty Bank", "Sensex", "Nifty 50", "Nifty Financial Services"})
+assert not INDEX_NAMES_NOT_SECTORS & set(SECTORS)
 
 
 class Factor(str, enum.Enum):
@@ -666,7 +677,7 @@ _POLICY_KEYS = frozenset({"neutral_weights", "bands", "derisk_mode", "review_dat
 class Policy:
     """Strategic policy the decision view measures against.
 
-    ``neutral_weights`` maps each of the 15 sectors, plus optionally ``"Cash"``,
+    ``neutral_weights`` maps each of the 13 sectors, plus optionally ``"Cash"``,
     to a neutral weight of the *total* portfolio; together they sum to 1.
     ``bands`` gives the permitted (low, high) range for the same keys, with
     ``0 <= low <= neutral <= high <= 1``.

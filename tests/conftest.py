@@ -37,7 +37,7 @@ def holdings_frame() -> pd.DataFrame:
             "date": ["2025-01-31", "2025-01-31", "2025-02-28", "2025-02-28"],
             "security_id": ["A", "B", "A", "B"],
             "weight": [0.6, 0.4, 0.5, 0.5],
-            "sector": ["Auto", "Bankex", "Auto", "Bankex"],
+            "sector": ["Auto", "Financial Services", "Auto", "Financial Services"],
         }
     )
 
@@ -46,7 +46,7 @@ def make_result(passes_override: bool | None = None) -> AttributionResult:
     """A hand-built, internally consistent result (numbers are illustrative)."""
     by_sector = (
         SectorAttribution("Auto", 0.12, 0.08, 0.05, 0.04, 0.0012, 0.0008, 0.0004),
-        SectorAttribution("Bankex", 0.18, 0.28, 0.02, 0.03, 0.0010, -0.0028, 0.0010),
+        SectorAttribution("Financial Services", 0.18, 0.28, 0.02, 0.03, 0.0010, -0.0028, 0.0010),
         SectorAttribution("Capital Goods", 0.10, 0.05, 0.07, 0.05, 0.0006, 0.0010, 0.0010),
     )
     allocation = sum(s.allocation for s in by_sector)

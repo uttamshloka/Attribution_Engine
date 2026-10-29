@@ -8,8 +8,10 @@ Dependent variable: monthly ACTIVE return ``y_t = r_portfolio,t - r_benchmark,t`
     market, size, value, momentum, quality, low_volatility
 
 The market regressor is the benchmark's EXCESS return ``r_benchmark - r_cash``,
-so its coefficient reads as ACTIVE beta (beta_portfolio - 1): the
-exposure-timing effect, comparable with the decision view's macro layer.
+so its coefficient reads as ACTIVE beta (beta_portfolio - 1). That is an
+average over the window: it mixes the holdings' structural beta with any
+deliberate exposure changes, so it is related to, but not the same as, the
+decision view's macro layer (see MARKET_VS_MACRO_NOTE).
 
 Headline decomposition: one full-period OLS with an intercept. Because OLS
 residuals have mean zero, the identity is exact::
@@ -76,6 +78,7 @@ __all__ = [
     "CONDITION_LIMIT",
     "IDENTITY_TOL",
     "MARKET_VS_MACRO_NOTE",
+    "TIMING_TERM_NOTE",
     "FactorError",
     "SeriesInspection",
     "FactorInspection",
@@ -100,10 +103,19 @@ IDENTITY_TOL = 1e-10
 _PERIODS_PER_YEAR = 12
 
 MARKET_VS_MACRO_NOTE = (
-    "The factor view's market-exposure line and the decision view's macro layer measure the same economic "
-    "decision - how much market risk to carry - by different routes: a monthly regression of active returns "
-    "versus period-by-period holdings and exposure weights. They will be close but not identical. The TOTALS "
-    "of the two views reconcile; individual lines across the two views do not have to."
+    "The factor view's market-exposure line and the decision view's macro layer both concern how much market "
+    "risk the portfolio carried, but they measure different things and can differ in sign. The macro layer "
+    "measures only the periods in which exposure was deliberately moved away from the policy weight. The factor "
+    "view's market coefficient is an average active beta over the whole window, which also picks up the "
+    "structural beta of the holdings - a small- and mid-cap book will carry a market beta different from one "
+    "even when exposure is never changed. The TOTALS of the two views reconcile; individual lines across the two "
+    "views do not have to, and a sign difference here is expected rather than a defect."
+)
+
+TIMING_TERM_NOTE = (
+    "A market-timing term (Henriksson-Merton or Treynor-Mazuy) would split the factor view's market line into "
+    "average beta and timing, making it directly comparable with the decision view's macro layer. It is not "
+    "implemented."
 )
 
 Classification = Literal[

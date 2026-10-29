@@ -38,8 +38,11 @@ def _policy_kwargs() -> dict:
 # --- enumerations ---------------------------------------------------------
 
 
-def test_fifteen_unique_sectors() -> None:
-    assert len(SECTORS) == len(set(SECTORS)) == 15
+def test_thirteen_unique_sectors_and_no_index_names() -> None:
+    assert len(SECTORS) == len(set(SECTORS)) == 13
+    assert "Bankex" not in SECTORS and "Energy" not in SECTORS
+    from attribution.schemas import INDEX_NAMES_NOT_SECTORS
+    assert not INDEX_NAMES_NOT_SECTORS & set(SECTORS)
 
 
 # --- holdings -------------------------------------------------------------

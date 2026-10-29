@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "attribution"
-version = "0.1.0"
-description = "Return attribution engine for Indian equity portfolios (contracts and sample data)"
+version = "0.2.0"
+description = "Return attribution engine for Indian equity portfolios (decision view and factor view)"
 requires-python = ">=3.11"
 dependencies = ["numpy>=1.26", "pandas>=2.1", "pyarrow>=14"]
 

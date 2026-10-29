@@ -169,8 +169,8 @@ def test_hood_beebower_rewards_overweights_in_rising_market() -> None:
     """The artefact Fachler removes: an overweight in a sector that rose LESS than the benchmark."""
     h, b, p = _toy(
         ["2025-01-31"],
-        {"Auto": [(0.5, 0.02)], "Bankex": [(0.5, 0.10)]},
-        {"Auto": [("A", 0.8, 0.02)], "Bankex": [("B", 0.2, 0.10)]},
+        {"Auto": [(0.5, 0.02)], "Financial Services": [(0.5, 0.10)]},
+        {"Auto": [("A", 0.8, 0.02)], "Financial Services": [("B", 0.2, 0.10)]},
     )
     fa = single_period_effects(h, b, p, "fachler").table.set_index("sector")
     hb = single_period_effects(h, b, p, "hood_beebower").table.set_index("sector")
@@ -184,8 +184,8 @@ def test_hood_beebower_rewards_overweights_in_rising_market() -> None:
 def test_sector_held_but_not_in_benchmark() -> None:
     h, b, p = _toy(
         ["2025-01-31", "2025-02-28"],
-        {"Auto": [(0.6, 0.03), (0.6, 0.01)], "Bankex": [(0.4, 0.01), (0.4, 0.02)]},
-        {"Auto": [("A", 0.5, 0.04), ("A", 0.5, 0.00)], "Bankex": [("B", 0.3, 0.02), ("B", 0.3, 0.03)],
+        {"Auto": [(0.6, 0.03), (0.6, 0.01)], "Financial Services": [(0.4, 0.01), (0.4, 0.02)]},
+        {"Auto": [("A", 0.5, 0.04), ("A", 0.5, 0.00)], "Financial Services": [("B", 0.3, 0.02), ("B", 0.3, 0.03)],
          "Realty": [("R", 0.2, 0.08), ("R", 0.2, -0.05)]},
     )
     e = single_period_effects(h, b, p)
@@ -198,15 +198,20 @@ def test_sector_held_but_not_in_benchmark() -> None:
     assert (pp[list(EFFECTS)].sum(axis=1) - pp["active_equity_book"]).abs().max() <= TOL
 
 
-def test_sector_in_benchmark_but_not_held(decision: DecisionAttribution) -> None:
-    orphans = [o for o in decision.effects.orphans if o.kind == "benchmark_not_held"]
-    t = decision.effects.table
+def test_sector_in_benchmark_but_not_held(sample: SampleData) -> None:
+    """Drop one sector from the sample portfolio so it is in the benchmark only."""
+    h = sample.holdings[sample.holdings["sector"] != "Realty"].copy()
+    h["weight"] = h["weight"] / h.groupby("date")["weight"].transform("sum")
+    e = single_period_effects(h, sample.benchmark, sample.prices)
+    orphans = [o for o in e.orphans if o.kind == "benchmark_not_held"]
+    t = e.table
     out = t[t["in_benchmark"] & ~t["held"]]
-    assert len(orphans) == len(out)
-    if out.empty:
-        pytest.skip("sample has no benchmark-only sector")
+    assert len(orphans) == len(out) == sample.holdings["date"].nunique()
+    assert set(out["sector"]) == {"Realty"}
     assert (out["selection_effect"] == 0).all() and (out["interaction"] == 0).all()
     np.testing.assert_allclose(out["allocation"], -out["w_b"] * (out["r_b"] - out["r_b_total"]), atol=0)
+    pp = e.per_period()
+    assert (pp[list(EFFECTS)].sum(axis=1) - pp["active_equity_book"]).abs().max() <= TOL
 
 
 def test_benchmark_only_sector_toy() -> None:
@@ -223,11 +228,11 @@ def test_benchmark_only_sector_toy() -> None:
 def test_sector_with_zero_weight_in_both_is_exactly_zero() -> None:
     h, b, p = _toy(
         ["2025-01-31", "2025-02-28"],
-        {"Auto": [(0.5, 0.02), (0.5, 0.01)], "Bankex": [(0.5, 0.01), (0.5, 0.03)], "Power": [(0.0, 0.07), (0.0, 0.0)]},
-        {"Auto": [("A", 0.5, 0.03), ("A", 0.6, 0.00)], "Bankex": [("B", 0.5, 0.00), ("B", 0.4, 0.02)]},
+        {"Auto": [(0.5, 0.02), (0.5, 0.01)], "Financial Services": [(0.5, 0.01), (0.5, 0.03)], "Power": [(0.0, 0.07), (0.0, 0.0)]},
+        {"Auto": [("A", 0.5, 0.03), ("A", 0.6, 0.00)], "Financial Services": [("B", 0.5, 0.00), ("B", 0.4, 0.02)]},
     )
     t = single_period_effects(h, b, p).table
-    for sector in ("Power", "Energy"):  # Power: zero-weight benchmark row; Energy: no row at all
+    for sector in ("Power", "Metal"):  # Power: zero-weight benchmark row; Metal: no row at all
         rows = t[t["sector"] == sector]
         assert len(rows) == 2
         assert (rows[list(EFFECTS)] == 0.0).all().all()

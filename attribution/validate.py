@@ -3,7 +3,9 @@
 :func:`validate_result` inspects a finished :class:`attribution.outputs.Result`
 and raises :class:`GateError` naming every failure it finds:
 
-1. either reconciliation identity breaks beyond tolerance
+1. a reconciliation identity breaks beyond tolerance - checked separately:
+   the four decision layers == GROSS active; gross active + cost line ==
+   NET active; factor view total == NET active
 2. portfolio or benchmark weights do not sum to 1.0 within 1e-6 in a period
 3. a NaN or infinity anywhere in the output figures
 4. fewer than 24 months
@@ -77,23 +79,31 @@ def validate_result(result: Result) -> Result:
         shown = ", ".join(bad[:10]) + (f" (+{len(bad) - 10} more)" if len(bad) > 10 else "")
         failures.append(f"non-finite number(s) in the output: {shown}")
 
-    # 1. reconciliation
+    # 1. reconciliation - recomputed from the recorded figures, not read from flags
     rec = result.reconciliation
     tol = rec.tolerance
-    for label, a, b in (
-        ("decision view total vs active return", rec.decision_total, rec.active_return),
-        ("factor view total vs active return", rec.factor_total, rec.active_return),
-        ("decision view total vs factor view total", rec.decision_total, rec.factor_total),
-    ):
-        if not (math.isfinite(a) and math.isfinite(b)) or abs(a - b) > tol:
-            failures.append(f"reconciliation broken: {label} differ by {a - b:.3e} (tolerance {tol:g}); "
-                            f"values {a:.12f} and {b:.12f}")
-    for name, value in rec.decision_components.items():
-        if not math.isfinite(value):
-            failures.append(f"reconciliation: decision component {name!r} is not finite")
-    if math.isfinite(rec.decision_total) and abs(sum(rec.decision_components.values()) - rec.decision_total) > tol:
-        failures.append("reconciliation broken: decision components do not sum to the decision total")
-    if math.isfinite(rec.factor_total) and abs(sum(rec.factor_components.values()) - rec.factor_total) > tol:
+    checks_rec = (
+        ("the four decision layers vs GROSS active", rec.decision_layers_total, rec.gross_active),
+        ("gross active + cost line vs NET active", rec.gross_active + rec.cost_line, rec.active_return),
+        ("factor view total vs NET active", rec.factor_total, rec.active_return),
+        ("decision view (layers + cost) vs factor view", rec.decision_layers_total + rec.cost_line, rec.factor_total),
+    )
+    for label, a_val, b_val in checks_rec:
+        if not (math.isfinite(a_val) and math.isfinite(b_val)) or abs(a_val - b_val) > tol:
+            failures.append(f"reconciliation broken: {label} differ by {a_val - b_val:.3e} (tolerance {tol:g}); "
+                            f"values {a_val:.12f} and {b_val:.12f}")
+    if math.isfinite(rec.decision_total) and abs(rec.decision_total - (rec.decision_layers_total + rec.cost_line)) > tol:
+        failures.append("reconciliation broken: decision_total is not the four layers plus the cost line")
+    if all(math.isfinite(v) for v in rec.decision_components.values()) and abs(
+        sum(rec.decision_components.values()) - rec.decision_layers_total
+    ) > tol:
+        failures.append("reconciliation broken: the four decision components do not sum to the layers total")
+    if set(rec.decision_components) != {"macro", "allocation", "selection", "interaction"}:
+        failures.append(f"reconciliation: decision components must be exactly the four layers, got "
+                        f"{sorted(rec.decision_components)}")
+    if all(math.isfinite(v) for v in rec.factor_components.values()) and abs(
+        sum(rec.factor_components.values()) - rec.factor_total
+    ) > tol:
         failures.append("reconciliation broken: factor components do not sum to the factor total")
     if not rec.max_period_identity_gap <= PERIOD_IDENTITY_TOL:
         failures.append(f"reconciliation broken: a single-period identity is off by {rec.max_period_identity_gap:.3e} "
@@ -104,8 +114,14 @@ def validate_result(result: Result) -> Result:
                         f"(difference {inner.difference:.3e})")
     if not rec.passes:
         failures.append("reconciliation broken: reconciliation.passes is False")
-    if abs(result.attribution.totals.active - rec.active_return) > tol:
-        failures.append("reconciliation broken: totals.active differs from the active return used for reconciliation")
+    totals = result.attribution.totals
+    if abs(totals.active - rec.active_return) > tol:
+        failures.append("reconciliation broken: totals.active differs from the net active return used for reconciliation")
+    if totals.active_gross is None or abs(totals.active_gross - rec.gross_active) > tol:
+        failures.append("reconciliation broken: totals.active_gross missing or different from the gross active used")
+    macro_parts = result.attribution.decision_view.macro_anatomy.components
+    if set(macro_parts) != {"exposure"}:
+        failures.append(f"macro layer must contain only exposure timing, found components {sorted(macro_parts)}")
 
     # 2. weights
     chk = result.checks

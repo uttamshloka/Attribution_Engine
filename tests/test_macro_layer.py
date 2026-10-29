@@ -57,7 +57,7 @@ def _with_cash_band(policy: Policy, band: tuple[float, float]) -> Policy:
 
 def test_window_where_overlay_never_fires_is_exactly_zero(sample: SampleData) -> None:
     """Months before the crisis are at policy every day: contribution must be exactly 0.0."""
-    cutoff = pd.Timestamp("2024-04-30")
+    cutoff = pd.Timestamp("2023-09-30")  # before the first (correction) episode
     bench = benchmark_total_return(sample.benchmark)
     result = _run(
         sample,

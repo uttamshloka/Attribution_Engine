@@ -4,11 +4,15 @@
 serialises to JSON and back without loss. Construction validates internal
 bookkeeping so a malformed result cannot be created, let alone shipped:
 
-* ``totals.active == totals.portfolio - totals.benchmark``
-* decision layers are exactly macro, allocation, selection, interaction
+* ``totals.active == totals.portfolio - totals.benchmark`` (net), and
+  ``totals.active_gross == totals.portfolio_gross - totals.benchmark`` (gross)
+* decision layers are exactly macro, allocation, selection, interaction; they
+  explain GROSS active return. ``decision_view.cost`` (fees and trading costs)
+  bridges gross active to net active: ``net_total = total + cost``
 * per-sector allocation/selection/interaction sum to the matching layers
 * factors are exactly the six style factors, in contract order
-* ``reconciliation.decision_total`` equals the sum of the decision layers
+* ``reconciliation.decision_total`` equals the decision layers plus the cost
+  line (net); ``reconciliation.layers_total`` equals the four layers (gross)
 * ``reconciliation.factor_total`` equals factor contributions + specific return
 * ``reconciliation.difference`` and ``passes`` are what the numbers imply
 
@@ -54,7 +58,9 @@ __all__ = [
     "AttributionResult",
 ]
 
-SCHEMA_VERSION = "1.0.0"
+#: 1.1.0: 13-sector taxonomy (Bankex and Energy retired); gross/net split in
+#: totals, decision_view.cost, reconciliation.layers_total / gross_active.
+SCHEMA_VERSION = "1.1.0"
 
 #: Tolerance for sums that must hold by construction (floating-point noise only).
 BOOKKEEPING_TOL = 1e-9
@@ -153,12 +159,19 @@ class ConfidenceInterval:
 
 @dataclass(frozen=True)
 class Totals:
-    """Cumulative returns over the period, simple decimals. Portfolio is net of fees."""
+    """Cumulative returns over the period, simple decimals.
+
+    ``portfolio`` / ``active`` are NET of fees (reported returns).
+    ``portfolio_gross`` / ``active_gross`` are from holdings x prices, before
+    fees and trading costs; both are optional and must be given together.
+    """
 
     portfolio: float
     benchmark: float
     active: float
     ci: ConfidenceInterval
+    portfolio_gross: float | None = None
+    active_gross: float | None = None
 
     def __post_init__(self) -> None:
         for name in ("portfolio", "benchmark", "active"):
@@ -167,6 +180,16 @@ class Totals:
             raise ResultValidationError(
                 f"totals.active {self.active} != portfolio - benchmark ({self.portfolio - self.benchmark})"
             )
+        if (self.portfolio_gross is None) != (self.active_gross is None):
+            raise ResultValidationError("totals.portfolio_gross and totals.active_gross must be given together")
+        if self.portfolio_gross is not None and self.active_gross is not None:
+            _finite("totals.portfolio_gross", self.portfolio_gross)
+            _finite("totals.active_gross", self.active_gross)
+            if not _close(self.active_gross, self.portfolio_gross - self.benchmark):
+                raise ResultValidationError(
+                    f"totals.active_gross {self.active_gross} != portfolio_gross - benchmark "
+                    f"({self.portfolio_gross - self.benchmark})"
+                )
 
 
 @dataclass(frozen=True)
@@ -220,11 +243,21 @@ class MacroAnatomy:
 
 @dataclass(frozen=True)
 class DecisionView:
+    """Four decision layers explaining GROSS active return, plus the cost line.
+
+    ``cost`` is fees and trading costs, expressed in the same linked
+    (cumulative) space: ``total`` (the four layers) is gross active and
+    ``net_total = total + cost`` is net active. The macro layer holds only
+    the exposure-timing effect, never costs.
+    """
+
     layers: tuple[DecisionLayer, ...]
     by_sector: tuple[SectorAttribution, ...]
     macro_anatomy: MacroAnatomy
+    cost: float = 0.0
 
     def __post_init__(self) -> None:
+        _finite("decision_view.cost", self.cost)
         names = tuple(layer.name for layer in self.layers)
         if names != DECISION_LAYERS:
             raise ResultValidationError(f"decision_view.layers must be {DECISION_LAYERS} in order, got {names}")
@@ -252,7 +285,13 @@ class DecisionView:
 
     @property
     def total(self) -> float:
+        """The four layers: gross active return."""
         return sum(layer.value for layer in self.layers)
+
+    @property
+    def net_total(self) -> float:
+        """Four layers plus the cost line: net active return."""
+        return self.total + self.cost
 
 
 @dataclass(frozen=True)
@@ -326,8 +365,14 @@ class FactorView:
 class Reconciliation:
     """Decision view vs factor view.
 
-    ``passes`` is true when both views agree with each other *and* with the
-    active return, each within ``tolerance``.
+    ``decision_total`` is the decision view's NET total (four layers + cost);
+    ``factor_total`` is the factor view's total; both explain net active.
+    ``layers_total`` (the four layers) explains ``gross_active``; both are
+    optional and must be given together.
+
+    ``passes`` is true when both views agree with each other and with net
+    active, and (if given) the layers agree with gross active, each within
+    ``tolerance``.
     """
 
     decision_total: float
@@ -335,6 +380,8 @@ class Reconciliation:
     difference: float
     tolerance: float
     passes: bool
+    layers_total: float | None = None
+    gross_active: float | None = None
 
     def __post_init__(self) -> None:
         for name in ("decision_total", "factor_total", "difference", "tolerance"):
@@ -346,14 +393,30 @@ class Reconciliation:
                 f"reconciliation.difference {self.difference} != decision_total - factor_total "
                 f"({self.decision_total - self.factor_total})"
             )
+        if (self.layers_total is None) != (self.gross_active is None):
+            raise ResultValidationError("reconciliation.layers_total and gross_active must be given together")
+        _optional_finite("reconciliation.layers_total", self.layers_total)
+        _optional_finite("reconciliation.gross_active", self.gross_active)
+
+    def expected_passes(self, active: float) -> bool:
+        ok = abs(self.difference) <= self.tolerance and abs(self.decision_total - active) <= self.tolerance
+        if self.layers_total is not None and self.gross_active is not None:
+            ok = ok and abs(self.layers_total - self.gross_active) <= self.tolerance
+        return ok
 
     @classmethod
     def compute(
-        cls, decision_total: float, factor_total: float, active: float, tolerance: float = DEFAULT_RECONCILIATION_TOL
+        cls,
+        decision_total: float,
+        factor_total: float,
+        active: float,
+        tolerance: float = DEFAULT_RECONCILIATION_TOL,
+        layers_total: float | None = None,
+        gross_active: float | None = None,
     ) -> Reconciliation:
         difference = decision_total - factor_total
-        passes = abs(difference) <= tolerance and abs(decision_total - active) <= tolerance
-        return cls(decision_total, factor_total, difference, tolerance, passes)
+        draft = cls(decision_total, factor_total, difference, tolerance, False, layers_total, gross_active)
+        return dataclasses.replace(draft, passes=draft.expected_passes(active))
 
 
 # ---------------------------------------------------------------------------
@@ -373,17 +436,25 @@ class AttributionResult:
 
     def __post_init__(self) -> None:
         rec = self.reconciliation
-        if not _close(rec.decision_total, self.decision_view.total):
+        if not _close(rec.decision_total, self.decision_view.net_total):
             raise ResultValidationError(
-                f"reconciliation.decision_total {rec.decision_total} != sum of decision layers "
-                f"{self.decision_view.total}"
+                f"reconciliation.decision_total {rec.decision_total} != decision layers + cost "
+                f"{self.decision_view.net_total}"
             )
+        if rec.layers_total is not None and not _close(rec.layers_total, self.decision_view.total):
+            raise ResultValidationError(
+                f"reconciliation.layers_total {rec.layers_total} != sum of decision layers {self.decision_view.total}"
+            )
+        if rec.gross_active is not None and self.totals.active_gross is not None and not _close(
+            rec.gross_active, self.totals.active_gross
+        ):
+            raise ResultValidationError("reconciliation.gross_active != totals.active_gross")
         if not _close(rec.factor_total, self.factor_view.total):
             raise ResultValidationError(
                 f"reconciliation.factor_total {rec.factor_total} != factor contributions + specific "
                 f"{self.factor_view.total}"
             )
-        expected = abs(rec.difference) <= rec.tolerance and abs(rec.decision_total - self.totals.active) <= rec.tolerance
+        expected = rec.expected_passes(self.totals.active)
         if rec.passes != expected:
             raise ResultValidationError(
                 f"reconciliation.passes is {rec.passes} but the numbers imply {expected}"

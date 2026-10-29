@@ -55,10 +55,11 @@ def test_sample_produces_complete_valid_result(full: Result) -> None:
     a = full.attribution
     assert a.period.n_periods == 60
     assert [l.name for l in a.decision_view.layers] == ["macro", "allocation", "selection", "interaction"]
-    assert len(a.decision_view.by_sector) == 15 and len(a.factor_view.factors) == 6
+    assert len(a.decision_view.by_sector) == 13 and len(a.factor_view.factors) == 6
     assert a.reconciliation.passes and full.reconciliation.passes
     rec = full.reconciliation
-    for diff in (rec.decision_minus_active, rec.factor_minus_active, rec.decision_minus_factor):
+    for diff in (rec.layers_minus_gross_active, rec.gross_plus_cost_minus_net, rec.factor_minus_active,
+                 rec.decision_minus_factor, rec.decision_minus_active):
         assert abs(diff) <= 1e-9
     assert rec.tolerance == 1e-9
     assert a.totals.active == pytest.approx(rec.active_return, abs=0)
@@ -67,13 +68,24 @@ def test_sample_produces_complete_valid_result(full: Result) -> None:
     assert all("sha256:" in v for k, v in full.run.inputs.items())
 
 
-def test_both_views_equal_net_active(full: Result) -> None:
-    a = full.attribution
-    assert a.decision_view.total == pytest.approx(a.totals.active, abs=1e-9)
-    assert a.factor_view.total == pytest.approx(a.totals.active, abs=1e-9)
-    comps = a.decision_view.macro_anatomy.components
-    assert set(comps) == {"exposure", "gross_to_net"}
-    assert comps["exposure"] + comps["gross_to_net"] == pytest.approx(a.decision_view.layer("macro"), abs=1e-12)
+def test_four_layers_tie_to_gross_and_cost_bridges_to_net(full: Result) -> None:
+    a, rec, g = full.attribution, full.reconciliation, full.gross_to_net
+    gross_active = a.totals.active_gross
+    assert gross_active is not None
+    assert abs(a.decision_view.total - gross_active) <= 1e-9          # four layers == GROSS active
+    assert abs(gross_active + a.decision_view.cost - a.totals.active) <= 1e-9  # + cost == NET active
+    assert abs(a.factor_view.total - a.totals.active) <= 1e-9         # factor view == NET active
+    assert a.decision_view.cost == pytest.approx(g.cost_cumulative, abs=1e-15)
+    assert a.decision_view.cost < 0 and gross_active > a.totals.active
+    assert set(rec.decision_components) == {"macro", "allocation", "selection", "interaction"}
+    assert set(rec.series_used) == {"decision_layers", "cost_line", "factor_view"}
+    assert "GROSS" in rec.series_used["decision_layers"] and "NET" in rec.series_used["factor_view"]
+
+
+def test_macro_layer_holds_only_exposure_timing(full: Result) -> None:
+    comps = full.attribution.decision_view.macro_anatomy.components
+    assert set(comps) == {"exposure"}
+    assert comps["exposure"] == pytest.approx(full.attribution.decision_view.layer("macro"), abs=0)
 
 
 def test_gross_net_bridge_is_first_class(full: Result) -> None:
@@ -120,8 +132,23 @@ def test_limitations_are_structured_and_mirrored(full: Result) -> None:
     ids = {x.id for x in full.limitations}
     assert len(ids) == len(full.limitations)
     assert len(full.attribution.limitations) == len(full.limitations)
-    assert "synthetic_data" in ids and "market_vs_macro" in ids and "orphan_sectors" in ids
-    assert "few_derisking_episodes" in ids  # the sample has a single crisis
+    assert "synthetic_data" in ids and "market_vs_macro" in ids and "timing_term_not_implemented" in ids
+    assert "few_derisking_episodes" in ids  # the sample has two episodes, fewer than three
+    few = next(x for x in full.limitations if x.id == "few_derisking_episodes")
+    assert "Only 2 de-risking episode(s)" in few.text
+    timing = next(x for x in full.limitations if x.id == "timing_term_not_implemented")
+    assert timing.severity == "info" and "Henriksson-Merton" in timing.text
+
+
+def test_no_limitation_makes_an_unenforced_closeness_claim(full: Result) -> None:
+    import re
+
+    pattern = re.compile(r"will be close|should (match|be close|agree)|close but not|will match|approximately equal",
+                         re.IGNORECASE)
+    offenders = [x.id for x in full.limitations if pattern.search(x.text)]
+    assert offenders == []
+    market = next(x for x in full.limitations if x.id == "market_vs_macro")
+    assert "can differ in sign" in market.text
 
 
 def test_each_spanning_interval_is_named(full: Result) -> None:
@@ -133,7 +160,7 @@ def test_each_spanning_interval_is_named(full: Result) -> None:
 
 
 def test_short_window_without_crisis_gets_its_limitations(data_dir: Path) -> None:
-    r = run_attribution(data_dir, period=("2021-10", "2024-04"), config=FAST)  # 31 months, before the crisis
+    r = run_attribution(data_dir, period=("2021-10", "2023-09"), config=FAST)  # 24 months, before both episodes
     ids = {x.id for x in r.limitations}
     assert {"short_history", "macro_never_fired", "few_derisking_episodes"} <= ids
     assert r.attribution.decision_view.macro_anatomy.components["exposure"] == 0.0
@@ -159,12 +186,26 @@ def _with(result: Result, **parts: object) -> Result:
 
 
 def test_gate_catches_broken_reconciliation(fast: Result) -> None:
-    rec = dataclasses.replace(fast.reconciliation, decision_total=fast.reconciliation.decision_total + 0.01)
-    with pytest.raises(GateError, match="reconciliation broken: decision view total vs active"):
+    rec = dataclasses.replace(fast.reconciliation, decision_layers_total=fast.reconciliation.decision_layers_total + 0.01)
+    with pytest.raises(GateError, match="the four decision layers vs GROSS active"):
         validate_result(_with(fast, reconciliation=rec))
     rec2 = dataclasses.replace(fast.reconciliation, factor_total=fast.reconciliation.factor_total - 1e-6)
-    with pytest.raises(GateError, match="factor view total vs active"):
+    with pytest.raises(GateError, match="factor view total vs NET active"):
         validate_result(_with(fast, reconciliation=rec2))
+    rec3 = dataclasses.replace(fast.reconciliation, cost_line=fast.reconciliation.cost_line + 1e-6)
+    with pytest.raises(GateError, match="gross active \\+ cost line vs NET active"):
+        validate_result(_with(fast, reconciliation=rec3))
+
+
+def test_gate_rejects_layers_tied_to_net_instead_of_gross(fast: Result) -> None:
+    """The old design: costs folded into macro so the four layers sum to NET active."""
+    rec = fast.reconciliation
+    folded = dict(rec.decision_components)
+    folded["macro"] += rec.cost_line
+    bad = dataclasses.replace(rec, decision_layers_total=rec.active_return, decision_components=folded,
+                              cost_line=0.0, decision_total=rec.active_return)
+    with pytest.raises(GateError, match="the four decision layers vs GROSS active"):
+        validate_result(_with(fast, reconciliation=bad))
 
 
 def test_gate_catches_weights_not_summing_to_one(fast: Result) -> None:
@@ -198,8 +239,7 @@ def test_gate_catches_policy_outside_its_band(fast: Result) -> None:
 
 
 def test_gate_catches_unrecorded_orphan_sector(fast: Result) -> None:
-    assert fast.checks.benchmark_not_held, "sample should contain a benchmark-only sector (Energy)"
-    chk = dataclasses.replace(fast.checks, orphans_recorded=())
+    chk = dataclasses.replace(fast.checks, benchmark_not_held=("2024-01 Telecommunication",), orphans_recorded=())
     with pytest.raises(GateError, match="not recorded as orphans"):
         validate_result(_with(fast, checks=chk))
     chk2 = dataclasses.replace(fast.checks, held_not_in_benchmark=("2024-01 Realty",))

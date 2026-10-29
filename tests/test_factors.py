@@ -204,16 +204,14 @@ def test_size_tilt_recovered_positive_and_significant(model: FactorModelResult) 
 
 def test_size_exposure_close_to_ground_truth(sample: SampleData, model: FactorModelResult) -> None:
     """The recovered exposure should sit near the true active size loading built into the sample."""
-    chars = sample.characteristics.set_index("security_id")
-    load = chars["loading_size"]
-    h = sample.holdings
-    port = (h["weight"] * h["security_id"].map(load)).groupby(h["date"]).sum()
-    prices = sample.prices.pivot(index="date", columns="security_id", values="total_return")
-    caps = prices.shift(1).fillna(0.0).add(1.0).cumprod().mul(chars.loc[prices.columns, "initial_market_cap_cr"])
-    bench = caps.div(caps.sum(axis=1), axis=0).mul(load.loc[prices.columns]).sum(axis=1)
-    true_active = float((port - bench).mean())
+    ex = sample.true_size_exposure
+    true_active = float((ex["portfolio"] - ex["benchmark"]).mean())
     assert true_active > 0
-    assert model.row("size").exposure == pytest.approx(true_active, rel=0.35)
+    assert model.row("size").exposure == pytest.approx(true_active, rel=0.25)
+
+
+def test_size_recovered_with_t_above_five(model: FactorModelResult) -> None:
+    assert model.row("size").t_stat > 5.0, f"size t-stat only {model.row('size').t_stat:.2f}"
 
 
 # --- benchmark-identical portfolio -------------------------------------------
@@ -256,6 +254,7 @@ def test_to_factor_view_matches_contract(model: FactorModelResult) -> None:
 def test_market_vs_macro_note_present(model: FactorModelResult) -> None:
     assert model.note == MARKET_VS_MACRO_NOTE
     assert "TOTALS" in model.note and "do not have to" in model.note
+    assert "can differ in sign" in model.note and "will be close" not in model.note
     assert "NOTE" in model.report()
 
 

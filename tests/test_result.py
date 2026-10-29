@@ -29,12 +29,13 @@ def test_json_top_level_structure(result: AttributionResult) -> None:
     assert list(data) == [
         "meta", "period", "totals", "decision_view", "factor_view", "reconciliation", "limitations",
     ]
-    assert set(data["totals"]) == {"portfolio", "benchmark", "active", "ci"}
-    assert set(data["decision_view"]) == {"layers", "by_sector", "macro_anatomy"}
+    assert set(data["totals"]) == {"portfolio", "benchmark", "active", "ci", "portfolio_gross", "active_gross"}
+    assert set(data["decision_view"]) == {"layers", "by_sector", "macro_anatomy", "cost"}
     assert set(data["factor_view"]) == {"factors", "specific_return", "diagnostics"}
-    assert set(data["reconciliation"]) == {"decision_total", "factor_total", "difference", "tolerance", "passes"}
+    assert set(data["reconciliation"]) == {"decision_total", "factor_total", "difference", "tolerance", "passes",
+                                           "layers_total", "gross_active"}
     assert data["reconciliation"]["passes"] is True
-    assert data["meta"]["schema_version"] == "1.0.0"
+    assert data["meta"]["schema_version"] == "1.1.0"
 
 
 def test_views_reconcile_to_active(result: AttributionResult) -> None:
