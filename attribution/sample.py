@@ -11,9 +11,14 @@ Universe
 
 Returns (monthly, simple)
     Each security earns ``cash + beta * (market - cash) + sum(loading * factor)
-    + sector shock + idiosyncratic noise``. Size loading is minus the
-    standardised log cap, so small caps load positively on ``size``. The other
-    style loadings are random. The true loadings are written to
+    + sector shock + idiosyncratic noise``. Size loading is ``-0.6`` times the
+    standardised log starting cap, so it is exactly negatively correlated with
+    log cap: small caps load positively on ``size``, and the universe average
+    is zero. Because caps are log-normal, a few giants dominate any
+    arithmetic-mean cap; judge the link on log cap. The other style loadings
+    are random. After the crisis the size factor earns a deterministic premium
+    of ``_SIZE_PREMIUM_MONTHLY`` a month (the small/mid-cap recovery); it starts
+    after the last crisis month so nothing up to the crisis changes. The true loadings are written to
     ``sample_characteristics.csv`` so a later factor view can be checked
     against them; that file is *not* an input contract.
 
@@ -22,9 +27,11 @@ Benchmark
     cap shares and sector returns are cap-weighted within the sector.
 
 Portfolio
-    Holds 32 of the 40 securities with weights proportional to
-    ``cap ** 0.35`` (against ``cap ** 1`` in the benchmark), which gives a
-    persistent small/mid-cap tilt, plus fixed sector over/underweights.
+    Holds the 32 smallest of the 40 securities by starting cap (the 8 largest
+    are excluded) with weights proportional to ``cap ** _CAP_EXPONENT``
+    (negative, so smaller names weigh more) times fixed sector tilts. Selection
+    and weighting both lean small/mid cap, giving a persistent positive size
+    exposure against a benchmark whose cap weighting leans large.
     Rebalanced quarterly, drifting with returns in between. Its equity sleeve
     weights (``holdings``) sum to 1 per date; the portfolio's total exposure to
     equity comes from the regime series, with the rest in cash. Reported
@@ -85,6 +92,7 @@ __all__ = [
     "SampleData",
     "generate_sample",
     "write_sample",
+    "tilt_diagnostics",
     "main",
 ]
 
@@ -144,6 +152,8 @@ _CONFIRM_DAYS = 5
 _CRISIS_DAYS = 60
 _ANNUAL_FEE = 0.02
 _N_HELD = 32
+_CAP_EXPONENT = -0.75
+_SIZE_PREMIUM_MONTHLY = 0.013
 _REBALANCE_EVERY = 3
 _BENCHMARK_NAME = "Synthetic BSE 40 (cap-weighted)"
 
@@ -299,6 +309,12 @@ def generate_sample(config: SampleConfig | None = None) -> SampleData:
     for f, shocks in _CRISIS_SHOCKS.items():
         for j, t in enumerate(crisis_idx):
             factors[f][t] += shocks[j]
+    # Small/mid-cap premium in the recovery after the crisis. It is deterministic
+    # (draws no random numbers) and starts only after the last crisis month, so
+    # every value up to and including the crisis is unchanged by it.
+    if crisis_idx:
+        for t in range(crisis_idx[-1] + 1, T):
+            factors["size"][t] += _SIZE_PREMIUM_MONTHLY
 
     # --- security returns -----------------------------------------------
     sector_shock = {s: rng.normal(0.0, 0.025, T) for s in SECTORS}
@@ -331,15 +347,19 @@ def generate_sample(config: SampleConfig | None = None) -> SampleData:
     benchmark["weight"] = benchmark["weight"] / benchmark.groupby("date")["weight"].transform("sum")
 
     # --- portfolio ------------------------------------------------------
-    excluded = rng.choice(n_sec, size=n_sec - _N_HELD, replace=False)
+    # Selection: drop the largest names by starting cap, hold the rest.
+    # Weighting: proportional to cap ** _CAP_EXPONENT (negative), so the
+    # smallest held names get the most weight. Selection and weighting both
+    # push toward small/mid caps, and the tilt is reset at every rebalance.
+    by_cap = np.argsort(-log_cap0)
     held = np.ones(n_sec, dtype=bool)
-    held[excluded] = False
+    held[by_cap[: n_sec - _N_HELD]] = False
     tilt = np.array([_SECTOR_TILT.get(s, 1.0) for s in sector_arr])
 
     weights = np.empty((T, n_sec))
     for t in range(T):
         if t % _REBALANCE_EVERY == 0:
-            target = np.where(held, caps[t] ** 0.35 * tilt, 0.0)
+            target = np.where(held, caps[t] ** _CAP_EXPONENT * tilt, 0.0)
             weights[t] = target / target.sum()
         else:
             grown = weights[t - 1] * (1.0 + sec_returns[t - 1])
@@ -421,6 +441,61 @@ def generate_sample(config: SampleConfig | None = None) -> SampleData:
         policy=policy,
         characteristics=characteristics,
     )
+
+
+def tilt_diagnostics(data: SampleData) -> dict[str, float]:
+    """Measures that show whether the sample carries its intended size tilt.
+
+    * ``corr_size_logcap``: correlation of ``loading_size`` with log starting
+      cap across all securities.
+    * ``held_to_unheld_cap``: mean starting cap of held names / of unheld names.
+    * ``portfolio_size_loading``: weighted size loading of the equity sleeve,
+      averaged across dates.
+    * ``universe_size_loading``: simple average size loading of all securities.
+    * ``active_annualised``: annualised portfolio return (net) minus annualised
+      benchmark return, the benchmark being ``sum(weight * return)`` over
+      sectors each month. Decimals: 0.04 is 4 percentage points.
+    * ``size_contribution_annualised``: sum over months of (portfolio size
+      exposure - benchmark size exposure) x size factor return, divided by the
+      number of years. Portfolio exposure is scaled by that month's equity
+      exposure; benchmark exposure uses cap weights rebuilt from prices.
+    * ``size_share_of_active``: the ratio of the two.
+    """
+    chars = data.characteristics.set_index("security_id")
+    loading = chars["loading_size"]
+    cap0 = chars["initial_market_cap_cr"]
+    held = chars["held"].astype(bool)
+
+    h = data.holdings
+    port_exp = (h["weight"] * h["security_id"].map(loading)).groupby(h["date"]).sum()
+
+    prices = data.prices.pivot(index="date", columns="security_id", values="total_return")
+    caps = prices.shift(1).fillna(0.0).add(1.0).cumprod().mul(cap0.loc[prices.columns])
+    bench_exp = caps.div(caps.sum(axis=1), axis=0).mul(loading.loc[prices.columns]).sum(axis=1)
+
+    regime = data.regime
+    monthly_e = regime.groupby(regime["date"].dt.to_period("M"))["equity_exposure"].mean()
+    equity_e = pd.Series(port_exp.index.to_period("M").map(monthly_e).to_numpy(), index=port_exp.index)
+
+    years = len(port_exp) / 12.0
+    port = data.portfolio_returns.set_index("date")["total_return"]
+    b = data.benchmark
+    bench = (b["weight"] * b["total_return"]).groupby(b["date"]).sum()
+    active = float((1 + port).prod() ** (1 / years) - (1 + bench).prod() ** (1 / years))
+
+    fr = data.factor_returns
+    size_ret = fr.loc[fr["factor"] == "size"].set_index("date")["total_return"]
+    size_contrib = float(((equity_e * port_exp - bench_exp) * size_ret.loc[port_exp.index]).sum() / years)
+
+    return {
+        "corr_size_logcap": float(np.corrcoef(loading, np.log(cap0))[0, 1]),
+        "held_to_unheld_cap": float(cap0[held].mean() / cap0[~held].mean()),
+        "portfolio_size_loading": float(port_exp.mean()),
+        "universe_size_loading": float(loading.mean()),
+        "active_annualised": active,
+        "size_contribution_annualised": size_contrib,
+        "size_share_of_active": size_contrib / active if active != 0 else float("nan"),
+    }
 
 
 #: File stem written for each table.

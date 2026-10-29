@@ -137,3 +137,50 @@ def test_portfolio_return_is_net_of_fees_and_exposure(sample: SampleData) -> Non
 def test_cli(tmp_path: Path) -> None:
     assert main(["--out", str(tmp_path), "--months", "24", "--seed", "3"]) == 0
     assert (tmp_path / "holdings.csv").exists()
+
+
+# --- size tilt: the sample must carry a deliberate, coherent small/mid-cap tilt ---
+
+
+@pytest.fixture(scope="module")
+def tilt(sample: SampleData) -> dict[str, float]:
+    from attribution.sample import tilt_diagnostics
+
+    return tilt_diagnostics(sample)
+
+
+def test_size_loading_negatively_correlated_with_log_cap(tilt: dict[str, float]) -> None:
+    assert tilt["corr_size_logcap"] <= -0.60
+
+
+def test_held_names_are_smaller_than_unheld(tilt: dict[str, float]) -> None:
+    assert tilt["held_to_unheld_cap"] <= 0.70
+
+
+def test_portfolio_weighted_size_loading_is_positive(tilt: dict[str, float]) -> None:
+    assert tilt["portfolio_size_loading"] >= 0.30
+
+
+def test_universe_size_loading_is_centred(tilt: dict[str, float]) -> None:
+    assert -0.05 <= tilt["universe_size_loading"] <= 0.05
+
+
+def test_active_return_in_target_band(tilt: dict[str, float]) -> None:
+    assert 0.03 <= tilt["active_annualised"] <= 0.06
+
+
+def test_size_explains_at_least_40pct_of_active(tilt: dict[str, float]) -> None:
+    assert tilt["size_share_of_active"] >= 0.40
+
+
+def test_crisis_benchmark_shape_unchanged(sample: SampleData) -> None:
+    b = sample.benchmark
+    monthly = (b["weight"] * b["total_return"]).groupby(b["date"]).sum()
+    crisis = monthly.loc["2024-07-31":"2024-09-30"].round(4).tolist()
+    assert crisis == [-0.1015, 0.0043, 0.0561]
+
+
+def test_weights_sum_to_one_every_date(sample: SampleData) -> None:
+    for frame in (sample.holdings, sample.benchmark):
+        sums = frame.groupby("date")["weight"].sum()
+        assert ((sums - 1.0).abs() <= 1e-9).all()

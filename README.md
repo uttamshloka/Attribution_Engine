@@ -187,10 +187,17 @@ carries a header saying it is synthetic (CSV `#` lines, Parquet metadata
 
 - 40 securities over all 15 sectors; synthetic ISINs with the `INEZZ` prefix
 - 60 month-ends ending at the month end on or before `--end` (default 2026-09-30)
-- returns from a known factor model; size loading = −standardised log cap
+- returns from a known factor model; size loading = −0.6 × standardised log cap
+  (correlation with log cap is −1; judge it on log cap, since a few giants
+  dominate any arithmetic-mean cap)
 - cap-weighted benchmark at sector level
-- portfolio holds 32 names weighted by `cap^0.35` with fixed sector tilts,
-  rebalanced quarterly → persistent small/mid-cap tilt
+- portfolio holds the 32 smallest names (8 largest excluded), weighted by
+  `cap^-0.75` with fixed sector tilts, rebalanced quarterly → persistent
+  small/mid-cap tilt (weighted size loading ≈ +0.46, universe average 0)
+- size factor earns a deterministic 1.3%/month premium **after** the crisis
+  (the small/mid-cap recovery); nothing up to and including the crisis changes,
+  so active return is ≈ +4.3pp a year with size explaining ≈ 63% of it
+- `tilt_diagnostics(data)` returns these measures; the tests pin them
 - equity exposure from the regime's confirmed state (normal 1.00, elevated
   0.85, crisis 0.60); the rest earns cash; 2% p.a. fee deducted
 - cash at a T-bill-like 5.5–7.5% a year
