@@ -1,4 +1,7 @@
-"""Command line: ``python -m attribution run --data-dir ... --out-dir ... --portfolio-name ...``
+"""Command line: ``python -m attribution run --portfolio-name ... [--data-dir ...] [--out-dir ...]``
+
+Folders default to :mod:`attribution.settings` (environment variables, then
+repository-relative defaults).
 
 Writes ``attribution_<portfolio>_<asof>.json`` (asof = last month-end of the
 period) and a run log ``attribution_<portfolio>_<asof>.log`` beside it. An
@@ -18,6 +21,7 @@ from pathlib import Path
 
 from attribution.engine import EngineConfig, EngineError, run_attribution
 from attribution.outputs import Result
+from attribution.settings import data_dir, output_dir
 from attribution.validate import GateError, validate_result
 
 __all__ = ["safe_name", "write_result", "main"]
@@ -83,8 +87,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m attribution", description="Portfolio return attribution engine.")
     sub = parser.add_subparsers(dest="command", required=True)
     run = sub.add_parser("run", help="run the engine on a data folder and write a validated JSON")
-    run.add_argument("--data-dir", required=True, type=Path)
-    run.add_argument("--out-dir", required=True, type=Path)
+    run.add_argument("--data-dir", type=Path, default=None,
+                     help="input folder (default: ATTRIBUTION_DATA_DIR or <repo>/sample_data)")
+    run.add_argument("--out-dir", type=Path, default=None,
+                     help="output folder (default: ATTRIBUTION_OUTPUT_DIR or a temp folder)")
     run.add_argument("--portfolio-name", required=True)
     run.add_argument("--policy", type=Path, default=None, help="policy JSON (default: <data-dir>/policy.json)")
     run.add_argument("--start", default=None, help="first month, e.g. 2022-01")
@@ -97,9 +103,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error("give both --start and --end, or neither")
     period = (args.start, args.end) if args.start else None
     cfg = EngineConfig(portfolio_name=args.portfolio_name, linking=args.linking, bootstrap=not args.no_bootstrap)
+    data = args.data_dir or data_dir()
+    out = args.out_dir or output_dir()
     try:
-        result = run_attribution(args.data_dir, args.policy, period=period, config=cfg)
-        json_path, log_path = write_result(result, args.out_dir, args.portfolio_name)
+        result = run_attribution(data, args.policy, period=period, config=cfg)
+        json_path, log_path = write_result(result, out, args.portfolio_name)
     except GateError as exc:
         print(str(exc), file=sys.stderr)
         print("Nothing was written; any earlier result file is unchanged.", file=sys.stderr)

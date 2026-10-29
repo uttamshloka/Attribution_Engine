@@ -1,7 +1,7 @@
 """The published output of an engine run: :class:`Result`.
 
 ``Result`` wraps the contract-level :class:`attribution.result.AttributionResult`
-(unchanged, schema 1.0.0) and adds what a reviewer needs to trust it:
+(schema 1.1.0) and adds what a reviewer needs to trust it:
 
 * ``gross_to_net``   gross (holdings x prices) vs net (reported) returns and
                      the reconciling cost line, as named fields
@@ -9,6 +9,13 @@
 * ``checks``         the input evidence the validation gate inspects
 * ``limitations``    consolidated, structured: id, severity, text, affects
 * ``run``            how the result was produced (versions, method, input hashes)
+* ``intervals``      the 95% interval for every line that has one, by line
+* ``factor_detail``  full factor-model diagnostics (adjusted R-squared,
+                     Durbin-Watson, condition numbers, VIFs)
+* ``rolling``        the rolling-window factor exposure path, for charting
+                     only - never used for any total
+
+Everything a page displays must come from this object.
 
 These records hold numbers as given; they do not re-validate themselves.
 Judging them is the job of :mod:`attribution.validate`, the gate that refuses
@@ -21,7 +28,7 @@ import json
 import typing
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Literal
 
 from attribution.result import AttributionResult, ResultValidationError, _decode, _encode
@@ -34,10 +41,14 @@ __all__ = [
     "ReconciliationDetail",
     "InputChecks",
     "RunInfo",
+    "LineInterval",
+    "FactorDetail",
+    "RollingExposures",
     "Result",
 ]
 
-OUTPUT_SCHEMA_VERSION = "1.0.0"
+#: 1.1.0 adds intervals, factor_detail and rolling.
+OUTPUT_SCHEMA_VERSION = "1.1.0"
 Severity = Literal["info", "caution", "material"]
 SEVERITIES: tuple[str, ...] = ("info", "caution", "material")
 
@@ -148,6 +159,51 @@ class RunInfo:
 
 
 @dataclass(frozen=True)
+class LineInterval:
+    """Bootstrap interval for one line of the result.
+
+    ``line`` is a dotted path such as ``decision_view.allocation`` or
+    ``factor_view.size``. ``basis`` says what the interval is on: lines are
+    shown as linked cumulative figures, intervals are on annualised
+    arithmetic means of monthly contributions.
+    """
+
+    line: str
+    point: float
+    lower: float
+    upper: float
+    level: float
+    spans_zero: bool
+    basis: str
+
+
+@dataclass(frozen=True)
+class FactorDetail:
+    order: tuple[str, ...]
+    n_obs: int
+    r_squared: float
+    adj_r_squared: float
+    durbin_watson: float
+    tracking_error: float
+    residual_volatility: float
+    condition_number_raw: float
+    condition_number_used: float
+    vif_raw: Mapping[str, float]
+    vif_used: Mapping[str, float]
+    exposure_lower: Mapping[str, float]
+    exposure_upper: Mapping[str, float]
+
+
+@dataclass(frozen=True)
+class RollingExposures:
+    """Factor exposures from a moving window, one value per window end. Charting only."""
+
+    window_months: int
+    window_end: tuple[date, ...]
+    exposures: Mapping[str, tuple[float, ...]]
+
+
+@dataclass(frozen=True)
 class Result:
     attribution: AttributionResult
     gross_to_net: GrossToNet
@@ -155,6 +211,9 @@ class Result:
     checks: InputChecks
     limitations: tuple[Limitation, ...]
     run: RunInfo
+    intervals: tuple[LineInterval, ...] = ()
+    factor_detail: FactorDetail | None = None
+    rolling: RollingExposures | None = None
     output_schema_version: str = OUTPUT_SCHEMA_VERSION
 
     def to_dict(self) -> dict[str, Any]:
@@ -176,3 +235,9 @@ class Result:
 
     def limitations_by_severity(self, severity: str) -> tuple[Limitation, ...]:
         return tuple(x for x in self.limitations if x.severity == severity)
+
+    def interval(self, line: str) -> LineInterval | None:
+        for x in self.intervals:
+            if x.line == line:
+                return x
+        return None

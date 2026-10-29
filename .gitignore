@@ -1,11 +1,8 @@
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
-data/
-sample_data/
-*.json
 .venv/
 .pytest_cache/
 *.egg-info/
-*.csv
-*.parquet
+data/
+.last_test_result.json

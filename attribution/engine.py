@@ -50,9 +50,26 @@ import pandas as pd
 
 from attribution import __version__, io
 from attribution.brinson import EFFECTS, link_multi_period, run_decision_attribution
-from attribution.factors import FACTOR_ORDER, MARKET_VS_MACRO_NOTE, TIMING_TERM_NOTE, build_factor_matrix, fit_factor_model
+from attribution.factors import (
+    FACTOR_ORDER,
+    MARKET_VS_MACRO_NOTE,
+    TIMING_TERM_NOTE,
+    build_factor_matrix,
+    fit_factor_model,
+    rolling_exposures,
+)
 from attribution.macro_layer import equity_band
-from attribution.outputs import GrossToNet, InputChecks, Limitation, ReconciliationDetail, Result, RunInfo
+from attribution.outputs import (
+    FactorDetail,
+    GrossToNet,
+    InputChecks,
+    Limitation,
+    LineInterval,
+    ReconciliationDetail,
+    Result,
+    RollingExposures,
+    RunInfo,
+)
 from attribution.result import (
     AttributionResult,
     ConfidenceInterval,
@@ -385,8 +402,42 @@ def run_attribution(
                   factor_order=tuple(model.order), data_dir=str(root.resolve()), inputs=inputs,
                   generated_at_utc=generated)
 
+    # --- intervals, factor detail and the rolling path (all for display) ---------------
+    basis = "95% block-bootstrap interval on the annualised arithmetic mean of monthly contributions"
+    intervals: list[LineInterval] = []
+
+    def add_interval(line: str, ci: BootstrapResult | None) -> None:
+        if ci is not None:
+            intervals.append(LineInterval(line, ci.point, ci.lower, ci.upper, ci.level, ci.spans_zero, basis))
+
+    add_interval("decision_view.macro", dec.macro.ci)
+    add_interval("decision_view.allocation", dec.intervals.get("allocation"))
+    add_interval("decision_view.selection", dec.intervals.get("selection_effect"))
+    add_interval("decision_view.interaction", dec.intervals.get("interaction"))
+    for r in model.rows:
+        add_interval(f"factor_view.{r.factor}", r.ci)
+    add_interval("factor_view.specific_return", model.specific_ci)
+    add_interval("totals.active", active_ci)
+
+    factor_detail = FactorDetail(
+        order=tuple(model.order), n_obs=model.n_obs, r_squared=model.r_squared, adj_r_squared=model.adj_r_squared,
+        durbin_watson=model.durbin_watson, tracking_error=model.tracking_error,
+        residual_volatility=model.residual_volatility, condition_number_raw=model.condition_number_raw,
+        condition_number_used=model.condition_number_used, vif_raw=dict(model.vif_raw), vif_used=dict(model.vif_used),
+        exposure_lower={r.factor: r.exposure_ci.lower for r in model.rows if r.exposure_ci is not None},
+        exposure_upper={r.factor: r.exposure_ci.upper for r in model.rows if r.exposure_ci is not None},
+    )
+    window = min(36, n)
+    path = rolling_exposures(active_m, matrix, window=window, order=cfg.factor_order)
+    rolling = RollingExposures(
+        window_months=window,
+        window_end=tuple(p.to_timestamp(how="end").date() for p in path.index),
+        exposures={f: tuple(float(x) for x in path[f]) for f in model.order},
+    )
+
     result = Result(attribution=attribution, gross_to_net=gross_to_net, reconciliation=detail,
-                    checks=checks, limitations=lims, run=run)
+                    checks=checks, limitations=lims, run=run, intervals=tuple(intervals),
+                    factor_detail=factor_detail, rolling=rolling)
     return validate_result(result)
 
 

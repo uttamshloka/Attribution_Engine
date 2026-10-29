@@ -81,15 +81,24 @@ changed.
 
 ## Running it
 
-### From Python (in a notebook cell)
+All paths come from `attribution/settings.py`. Defaults are relative to the
+repository, and each can be overridden with an environment variable:
+
+| Setting | Environment variable | Default |
+|---|---|---|
+| input data | `ATTRIBUTION_DATA_DIR` | `sample_data/` |
+| committed result shown by the app | `ATTRIBUTION_RESULTS_DIR` | `results/` |
+| where new results are written | `ATTRIBUTION_OUTPUT_DIR` | a temporary folder |
+
+### From Python
 
 ```python
 from attribution.engine import EngineConfig, run_attribution
 from attribution.cli import write_result
+from attribution.settings import data_dir, output_dir
 
-result = run_attribution("/content/attribution_engine/sample_data",
-                         config=EngineConfig(portfolio_name="Sample PMS"))
-write_result(result, "/content/drive/MyDrive/attribution_outputs", "Sample PMS")
+result = run_attribution(data_dir(), config=EngineConfig(portfolio_name="Sample PMS"))
+write_result(result, output_dir(), "Sample PMS")
 ```
 
 `run_attribution(data_dir, policy=None, period=None, config=None)`:
@@ -98,14 +107,15 @@ write_result(result, "/content/drive/MyDrive/attribution_outputs", "Sample PMS")
 * `period`: optional first and last month, e.g. `("2022-01", "2026-09")`
 * `config`: `EngineConfig(portfolio_name=..., linking="carino" or "menchero", bootstrap=True, ...)`
 
-### From the command line (in a notebook cell, prefix with `!`)
+### From the command line (run from the repository folder)
 
 ```
-cd /content/attribution_engine && python -m attribution run --data-dir sample_data --out-dir /content/drive/MyDrive/attribution_outputs --portfolio-name "Sample PMS"
+python -m attribution run --portfolio-name "Sample PMS"
+python -m attribution run --portfolio-name "Sample PMS" --data-dir sample_data --out-dir results_out
 ```
 
-Options: `--policy FILE`, `--start 2022-01 --end 2026-09`, `--linking menchero`,
-`--no-bootstrap` (faster; skips confidence intervals).
+Options: `--data-dir`, `--out-dir`, `--policy FILE`, `--start 2022-01 --end 2026-09`,
+`--linking menchero`, `--no-bootstrap` (faster; skips confidence intervals).
 
 Output: `attribution_<portfolio>_<last month-end>.json` plus a `.log` file
 beside it, recording the inputs and their SHA-256 hashes, the package version,
@@ -113,7 +123,40 @@ the linking method, the factor order, the validation verdict and the UTC time.
 **An existing file is never overwritten**: a second run for the same date
 writes `..._2.json`, then `_3`, and so on.
 
-To regenerate the synthetic sample: `python -m attribution.sample --out sample_data`.
+To rebuild the committed demo (the synthetic `sample_data/` and the single
+result file in `results/`): `python -m attribution.demo`.
+
+### The attribution page (Streamlit)
+
+```
+streamlit run streamlit_app.py
+```
+
+The page shows the committed result in `results/` by default. A full engine
+run takes several seconds, and Streamlit Cloud restarts containers often, so
+recomputing on every visit would make the page feel broken. The **Recompute
+from source data** button runs the engine live on `sample_data/` and writes the
+result to the output folder.
+
+## Deploying to Streamlit Community Cloud
+
+Push this repository to GitHub with exactly this layout, then create an app
+pointing at `streamlit_app.py` on the `main` branch. No settings are needed.
+
+```
+streamlit_app.py          entry point (Streamlit Cloud looks for it at the root)
+requirements.txt          pinned runtime dependencies
+.streamlit/config.toml    dark theme
+attribution/              the package
+sample_data/              synthetic input CSVs and policy.json (committed)
+results/                  the pre-computed result JSON the page loads (committed)
+tests/                    pytest suite (not used by the deployed app)
+README.md
+pyproject.toml
+```
+
+The app only reads from `sample_data/` and `results/`, and only writes to a
+temporary folder, because Streamlit Cloud has no persistent disk.
 
 ---
 
@@ -233,5 +276,8 @@ severity (`info`, `caution`, `material`), text and the sections affected.
 | `validate` | The gate that refuses to publish a broken result |
 | `engine` | `run_attribution`: the single entry point |
 | `cli` | `python -m attribution run ...` and the never-overwrite file writer |
+| `settings` | The one place input, result and output folders are decided |
+| `demo` | Rebuilds the synthetic sample data and the committed demo result |
+| `streamlit_app.py` | The attribution page (decision view, factor view, reconciliation, limitations) |
 
-Tests are in `tests/`; run them with `pytest`.
+Tests are in `tests/`; run them with `pytest` (install with `pip install -e ".[dev,app]"`).

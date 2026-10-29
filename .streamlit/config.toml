@@ -1,0 +1,15 @@
+# Dark, restrained theme for institutional readers: near-black background,
+# one muted accent, a plain sans-serif.
+[theme]
+base = "dark"
+primaryColor = "#7A9CC6"
+backgroundColor = "#0D0F12"
+secondaryBackgroundColor = "#161A1F"
+textColor = "#D5D9DF"
+font = "sans serif"
+
+[server]
+headless = true
+
+[browser]
+gatherUsageStats = false

@@ -1,0 +1,891 @@
+{
+  "attribution": {
+    "meta": {
+      "portfolio_id": "Sample PMS",
+      "portfolio_name": "Sample PMS",
+      "benchmark_name": "Synthetic Indian large-cap (sector-weighted, indicative)",
+      "currency": "INR",
+      "frequency": "monthly",
+      "linking": "carino",
+      "engine_version": "0.2.0",
+      "generated_at": "2026-10-29T11:31:55",
+      "synthetic_data": true,
+      "schema_version": "1.1.0"
+    },
+    "period": {
+      "start": "2021-10-31",
+      "end": "2026-09-30",
+      "n_periods": 60
+    },
+    "totals": {
+      "portfolio": 1.0762877050021116,
+      "benchmark": 0.7694271889167144,
+      "active": 0.3068605160853972,
+      "ci": {
+        "level": 0.95,
+        "lower": -0.04223977870557756,
+        "upper": 0.11053750737225482,
+        "method": "circular moving-block bootstrap of annualised mean monthly active return"
+      },
+      "portfolio_gross": 1.2899801270805598,
+      "active_gross": 0.5205529381638454
+    },
+    "decision_view": {
+      "layers": [
+        {
+          "name": "macro",
+          "value": 0.1988001617354725
+        },
+        {
+          "name": "allocation",
+          "value": 0.05236810581536763
+        },
+        {
+          "name": "selection",
+          "value": 0.2699542553039211
+        },
+        {
+          "name": "interaction",
+          "value": -0.0005695846909144747
+        }
+      ],
+      "by_sector": [
+        {
+          "sector": "Auto",
+          "portfolio_weight": 0.08491324890833615,
+          "benchmark_weight": 0.07000000000000002,
+          "portfolio_return": 0.6653743493878108,
+          "benchmark_return": 0.38766116587915955,
+          "allocation": -0.006721414277769746,
+          "selection": 0.02496262501475273,
+          "interaction": 0.0049689267507381256
+        },
+        {
+          "sector": "Basic Materials",
+          "portfolio_weight": 0.03959893971670244,
+          "benchmark_weight": 0.02499999999999999,
+          "portfolio_return": 0.6262207443161407,
+          "benchmark_return": 0.2647256522626731,
+          "allocation": -0.010357438942014236,
+          "selection": 0.01831792738743944,
+          "interaction": 0.011333164162166365
+        },
+        {
+          "sector": "Capital Goods",
+          "portfolio_weight": 0.09039475643298811,
+          "benchmark_weight": 0.03500000000000001,
+          "portfolio_return": 1.7136364285640298,
+          "benchmark_return": 1.087302845751553,
+          "allocation": 0.02504472417940844,
+          "selection": 0.01968113035591633,
+          "interaction": 0.029574283514838044
+        },
+        {
+          "sector": "Consumer Durables",
+          "portfolio_weight": 0.06483654377968118,
+          "benchmark_weight": 0.02499999999999999,
+          "portfolio_return": 0.7259530401008962,
+          "benchmark_return": 0.45086186455480326,
+          "allocation": -0.0054833877838655586,
+          "selection": 0.010545889447917841,
+          "interaction": 0.017961993473074773
+        },
+        {
+          "sector": "Financial Services",
+          "portfolio_weight": 0.27852821539987044,
+          "benchmark_weight": 0.3700000000000001,
+          "portfolio_return": 0.8322196114414369,
+          "benchmark_return": 0.8128061297038482,
+          "allocation": -0.004503153753860822,
+          "selection": 0.0037310674415060954,
+          "interaction": -0.006098332630414612
+        },
+        {
+          "sector": "FMCG",
+          "portfolio_weight": 0.06028520980470246,
+          "benchmark_weight": 0.08000000000000002,
+          "portfolio_return": 1.5490928455399309,
+          "benchmark_return": 0.4216382187707306,
+          "allocation": 0.010325747327797195,
+          "selection": 0.11098205685976338,
+          "interaction": -0.02865024473529885
+        },
+        {
+          "sector": "Healthcare",
+          "portfolio_weight": 0.07459992091986288,
+          "benchmark_weight": 0.04499999999999999,
+          "portfolio_return": 0.4882043893471748,
+          "benchmark_return": 0.5144921023449498,
+          "allocation": -0.0068142962098369465,
+          "selection": 0.0020915312399482832,
+          "interaction": 0.0016658621618963285
+        },
+        {
+          "sector": "Information Technology",
+          "portfolio_weight": 0.10562106420277322,
+          "benchmark_weight": 0.13499999999999998,
+          "portfolio_return": 1.5215981956942684,
+          "benchmark_return": 1.0551151367560658,
+          "allocation": -0.01116758798560943,
+          "selection": 0.055632267439423996,
+          "interaction": -0.014324531070671503
+        },
+        {
+          "sector": "Metal",
+          "portfolio_weight": 0.040318409311912794,
+          "benchmark_weight": 0.030000000000000002,
+          "portfolio_return": 1.012829926997255,
+          "benchmark_return": 1.2908114897023681,
+          "allocation": 0.007408640431164598,
+          "selection": -0.0007530119078945601,
+          "interaction": -0.0018386610242750057
+        },
+        {
+          "sector": "Oil & Gas",
+          "portfolio_weight": 0.06538555407544386,
+          "benchmark_weight": 0.11000000000000003,
+          "portfolio_return": 0.5492763795949864,
+          "benchmark_return": 0.49247731658950444,
+          "allocation": 0.008316596829815474,
+          "selection": 0.043882273606109225,
+          "interaction": -0.01432472771691972
+        },
+        {
+          "sector": "Power",
+          "portfolio_weight": 0.04026907658324893,
+          "benchmark_weight": 0.02499999999999999,
+          "portfolio_return": 1.346748515871413,
+          "benchmark_return": 2.22889034131874,
+          "allocation": 0.019315026044795354,
+          "selection": -0.015721922837596984,
+          "interaction": -0.010109831407235004
+        },
+        {
+          "sector": "Realty",
+          "portfolio_weight": 0.030374249722923873,
+          "benchmark_weight": 0.015000000000000001,
+          "portfolio_return": 2.099095015535266,
+          "benchmark_return": 1.7291377774515673,
+          "allocation": 0.0191151205970454,
+          "selection": 0.005392214528138669,
+          "interaction": 0.008313723355409808
+        },
+        {
+          "sector": "Telecommunication",
+          "portfolio_weight": 0.024874811141553668,
+          "benchmark_weight": 0.03500000000000001,
+          "portfolio_return": -0.08681505916738885,
+          "benchmark_return": 0.08804586121905533,
+          "allocation": 0.00788952935829793,
+          "selection": -0.008789793271503348,
+          "interaction": 0.0009587904757767972
+        }
+      ],
+      "macro_anatomy": {
+        "average_equity_exposure": 0.9761613024656502,
+        "policy_equity_exposure": 1.0,
+        "cash_return": 0.06757120356619528,
+        "components": {
+          "exposure": 0.1988001617354725
+        }
+      },
+      "cost": -0.21369242207844819
+    },
+    "factor_view": {
+      "factors": [
+        {
+          "factor": "market",
+          "exposure": -0.08085066501293783,
+          "factor_return": 0.06718349433212105,
+          "contribution": -0.024734610713720302,
+          "t_stat": -2.7303485619070655
+        },
+        {
+          "factor": "size",
+          "exposure": 0.6846488250221816,
+          "factor_return": 0.05015856312937585,
+          "contribution": 0.3108925009997714,
+          "t_stat": 10.407438475800197
+        },
+        {
+          "factor": "value",
+          "exposure": 0.18946152642350986,
+          "factor_return": 0.003612727726783901,
+          "contribution": 0.005724704331619918,
+          "t_stat": 2.36191185713438
+        },
+        {
+          "factor": "momentum",
+          "exposure": 0.16395552454297058,
+          "factor_return": 0.010200860908045496,
+          "contribution": 0.014950933232835908,
+          "t_stat": 2.7966336109310146
+        },
+        {
+          "factor": "quality",
+          "exposure": -0.11018822651527589,
+          "factor_return": 0.04822465563565671,
+          "contribution": -0.05106617443127262,
+          "t_stat": -1.0670958419713608
+        },
+        {
+          "factor": "low_volatility",
+          "exposure": 0.05596758491572963,
+          "factor_return": -0.011706344977394957,
+          "contribution": -0.006205728944244184,
+          "t_stat": 0.6566771438535075
+        }
+      ],
+      "specific_return": {
+        "value": 0.057298891610407854,
+        "t_stat": 0.3237621113366547,
+        "information_ratio": 0.15318271771453346
+      },
+      "diagnostics": {
+        "method": "returns_based; OLS with intercept; Gram-Schmidt order market -> size -> value -> momentum -> quality -> low_volatility; contributions carino-linked to geometric active",
+        "n_obs": 60,
+        "r_squared": 0.714537176967905,
+        "tracking_error": 0.07593337708824315,
+        "residual_volatility": 0.04280510478023469,
+        "warnings": [
+          "Factor contributions are incremental in the order market -> size -> value -> momentum -> quality -> low_volatility; a different order would split the same total differently.",
+          "Returns-based exposures are averages over the whole window; exposures that change over time are blurred (see rolling_exposures for the path)."
+        ]
+      }
+    },
+    "reconciliation": {
+      "decision_total": 0.30686051608539855,
+      "factor_total": 0.30686051608539794,
+      "difference": 6.106226635438361e-16,
+      "tolerance": 1e-09,
+      "passes": true,
+      "layers_total": 0.5205529381638467,
+      "gross_active": 0.5205529381638454
+    },
+    "limitations": [
+      "[material] Inputs are SYNTHETIC sample data; figures describe no real portfolio.",
+      "[caution] Only 2 de-risking episode(s) in the window (fewer than 3): evidence on the overlay rests on very few events.",
+      "[caution] The 95% interval for the macro exposure effect spans zero (annualised -0.68% to +4.78%): not statistically distinguishable from zero.",
+      "[caution] The 95% interval for the allocation spans zero (annualised -1.48% to +2.82%): not statistically distinguishable from zero.",
+      "[caution] The 95% interval for the selection spans zero (annualised -4.34% to +10.92%): not statistically distinguishable from zero.",
+      "[caution] The 95% interval for the interaction spans zero (annualised -1.91% to +1.61%): not statistically distinguishable from zero.",
+      "[caution] The 95% interval for the market factor contribution spans zero (annualised -1.27% to +1.71%): not statistically distinguishable from zero.",
+      "[caution] The 95% interval for the size factor contribution spans zero (annualised -3.46% to +11.38%): not statistically distinguishable from zero.",
+      "[caution] The 95% interval for the value factor contribution spans zero (annualised -0.97% to +1.31%): not statistically distinguishable from zero.",
+      "[caution] The 95% interval for the momentum factor contribution spans zero (annualised -0.79% to +1.27%): not statistically distinguishable from zero.",
+      "[caution] The 95% interval for the quality factor contribution spans zero (annualised -1.85% to +0.19%): not statistically distinguishable from zero.",
+      "[caution] The 95% interval for the low_volatility factor contribution spans zero (annualised -0.47% to +0.70%): not statistically distinguishable from zero.",
+      "[caution] The 95% interval for the specific return spans zero (annualised -4.44% to +4.62%): not statistically distinguishable from zero.",
+      "[caution] The 95% interval for annualised active return spans zero (-4.22% to +11.05%).",
+      "[info] Factor contributions are incremental in the order market -> size -> value -> momentum -> quality -> low_volatility; a different order would split the same total differently.",
+      "[info] Returns-based exposures are averages over the whole window; exposures that change over time are blurred (see rolling_exposures for the path).",
+      "[info] The factor view's market-exposure line and the decision view's macro layer both concern how much market risk the portfolio carried, but they measure different things and can differ in sign. The macro layer measures only the periods in which exposure was deliberately moved away from the policy weight. The factor view's market coefficient is an average active beta over the whole window, which also picks up the structural beta of the holdings - a small- and mid-cap book will carry a market beta different from one even when exposure is never changed. The TOTALS of the two views reconcile; individual lines across the two views do not have to, and a sign difference here is expected rather than a defect.",
+      "[info] A market-timing term (Henriksson-Merton or Treynor-Mazuy) would split the factor view's market line into average beta and timing, making it directly comparable with the decision view's macro layer. It is not implemented.",
+      "[info] Confidence intervals are on annualised arithmetic means of monthly contributions; headline lines are geometrically linked cumulative figures."
+    ]
+  },
+  "gross_to_net": {
+    "gross_cumulative": 1.2899801270805598,
+    "net_cumulative": 1.0762877050021116,
+    "cost_cumulative": -0.21369242207844819,
+    "gross_annualised": 0.18022916574438774,
+    "net_annualised": 0.15733078749815443,
+    "cost_annualised": -0.02289837824623331,
+    "mean_monthly_gap": -0.0016515813019314523,
+    "mean_abs_monthly_gap": 0.0016515813019314523,
+    "max_abs_monthly_gap": 0.00165158130223933,
+    "threshold_monthly": 0.005,
+    "consistent": true,
+    "label": "fees and trading costs"
+  },
+  "reconciliation": {
+    "active_definition": "net active = prod(1 + portfolio net) - prod(1 + policy benchmark); policy benchmark = w_pol x benchmark + (1 - w_pol) x cash",
+    "series_used": {
+      "decision_layers": "GROSS portfolio (holdings x prices, cash at equity weight) vs policy benchmark; carino coefficients on that gross pair",
+      "cost_line": "prod(1 + NET portfolio) - prod(1 + GROSS portfolio)",
+      "factor_view": "NET portfolio (reported) vs policy benchmark; carino coefficients on that net pair"
+    },
+    "linking": "carino",
+    "active_return": 0.3068605160853972,
+    "gross_active": 0.5205529381638454,
+    "decision_layers_total": 0.5205529381638467,
+    "cost_line": -0.21369242207844819,
+    "decision_total": 0.30686051608539855,
+    "factor_total": 0.30686051608539794,
+    "layers_minus_gross_active": 1.3322676295501878e-15,
+    "gross_plus_cost_minus_net": 0.0,
+    "decision_minus_active": 1.3322676295501878e-15,
+    "factor_minus_active": 7.216449660063518e-16,
+    "decision_minus_factor": 6.106226635438361e-16,
+    "tolerance": 1e-09,
+    "passes": true,
+    "decision_components": {
+      "macro": 0.1988001617354725,
+      "allocation": 0.05236810581536763,
+      "selection": 0.2699542553039211,
+      "interaction": -0.0005695846909144747
+    },
+    "factor_components": {
+      "market": -0.024734610713720302,
+      "size": 0.3108925009997714,
+      "value": 0.005724704331619918,
+      "momentum": 0.014950933232835908,
+      "quality": -0.05106617443127262,
+      "low_volatility": -0.006205728944244184,
+      "specific_return": 0.057298891610407854
+    },
+    "max_period_identity_gap": 2.42861286636753e-17
+  },
+  "checks": {
+    "n_months": 60,
+    "holdings_weight_max_deviation": 6.199485369506874e-13,
+    "benchmark_weight_max_deviation": 0.0,
+    "held_not_in_benchmark": [],
+    "benchmark_not_held": [],
+    "orphans_recorded": [],
+    "dropped_holdings": [],
+    "policy_equity_weight": 1.0,
+    "policy_equity_band": [
+      0.6,
+      1.0
+    ]
+  },
+  "limitations": [
+    {
+      "id": "synthetic_data",
+      "severity": "material",
+      "text": "Inputs are SYNTHETIC sample data; figures describe no real portfolio.",
+      "affects": [
+        "meta",
+        "totals"
+      ]
+    },
+    {
+      "id": "few_derisking_episodes",
+      "severity": "caution",
+      "text": "Only 2 de-risking episode(s) in the window (fewer than 3): evidence on the overlay rests on very few events.",
+      "affects": [
+        "decision_view.macro"
+      ]
+    },
+    {
+      "id": "ci_spans_zero:decision_view.macro",
+      "severity": "caution",
+      "text": "The 95% interval for the macro exposure effect spans zero (annualised -0.68% to +4.78%): not statistically distinguishable from zero.",
+      "affects": [
+        "decision_view.macro"
+      ]
+    },
+    {
+      "id": "ci_spans_zero:decision_view.allocation",
+      "severity": "caution",
+      "text": "The 95% interval for the allocation spans zero (annualised -1.48% to +2.82%): not statistically distinguishable from zero.",
+      "affects": [
+        "decision_view.allocation"
+      ]
+    },
+    {
+      "id": "ci_spans_zero:decision_view.selection",
+      "severity": "caution",
+      "text": "The 95% interval for the selection spans zero (annualised -4.34% to +10.92%): not statistically distinguishable from zero.",
+      "affects": [
+        "decision_view.selection"
+      ]
+    },
+    {
+      "id": "ci_spans_zero:decision_view.interaction",
+      "severity": "caution",
+      "text": "The 95% interval for the interaction spans zero (annualised -1.91% to +1.61%): not statistically distinguishable from zero.",
+      "affects": [
+        "decision_view.interaction"
+      ]
+    },
+    {
+      "id": "ci_spans_zero:factor_view.market",
+      "severity": "caution",
+      "text": "The 95% interval for the market factor contribution spans zero (annualised -1.27% to +1.71%): not statistically distinguishable from zero.",
+      "affects": [
+        "factor_view.market"
+      ]
+    },
+    {
+      "id": "ci_spans_zero:factor_view.size",
+      "severity": "caution",
+      "text": "The 95% interval for the size factor contribution spans zero (annualised -3.46% to +11.38%): not statistically distinguishable from zero.",
+      "affects": [
+        "factor_view.size"
+      ]
+    },
+    {
+      "id": "ci_spans_zero:factor_view.value",
+      "severity": "caution",
+      "text": "The 95% interval for the value factor contribution spans zero (annualised -0.97% to +1.31%): not statistically distinguishable from zero.",
+      "affects": [
+        "factor_view.value"
+      ]
+    },
+    {
+      "id": "ci_spans_zero:factor_view.momentum",
+      "severity": "caution",
+      "text": "The 95% interval for the momentum factor contribution spans zero (annualised -0.79% to +1.27%): not statistically distinguishable from zero.",
+      "affects": [
+        "factor_view.momentum"
+      ]
+    },
+    {
+      "id": "ci_spans_zero:factor_view.quality",
+      "severity": "caution",
+      "text": "The 95% interval for the quality factor contribution spans zero (annualised -1.85% to +0.19%): not statistically distinguishable from zero.",
+      "affects": [
+        "factor_view.quality"
+      ]
+    },
+    {
+      "id": "ci_spans_zero:factor_view.low_volatility",
+      "severity": "caution",
+      "text": "The 95% interval for the low_volatility factor contribution spans zero (annualised -0.47% to +0.70%): not statistically distinguishable from zero.",
+      "affects": [
+        "factor_view.low_volatility"
+      ]
+    },
+    {
+      "id": "ci_spans_zero:factor_view.specific_return",
+      "severity": "caution",
+      "text": "The 95% interval for the specific return spans zero (annualised -4.44% to +4.62%): not statistically distinguishable from zero.",
+      "affects": [
+        "factor_view.specific_return"
+      ]
+    },
+    {
+      "id": "ci_spans_zero:totals.active",
+      "severity": "caution",
+      "text": "The 95% interval for annualised active return spans zero (-4.22% to +11.05%).",
+      "affects": [
+        "totals.active"
+      ]
+    },
+    {
+      "id": "factor_note_1",
+      "severity": "info",
+      "text": "Factor contributions are incremental in the order market -> size -> value -> momentum -> quality -> low_volatility; a different order would split the same total differently.",
+      "affects": [
+        "factor_view"
+      ]
+    },
+    {
+      "id": "factor_note_2",
+      "severity": "info",
+      "text": "Returns-based exposures are averages over the whole window; exposures that change over time are blurred (see rolling_exposures for the path).",
+      "affects": [
+        "factor_view"
+      ]
+    },
+    {
+      "id": "market_vs_macro",
+      "severity": "info",
+      "text": "The factor view's market-exposure line and the decision view's macro layer both concern how much market risk the portfolio carried, but they measure different things and can differ in sign. The macro layer measures only the periods in which exposure was deliberately moved away from the policy weight. The factor view's market coefficient is an average active beta over the whole window, which also picks up the structural beta of the holdings - a small- and mid-cap book will carry a market beta different from one even when exposure is never changed. The TOTALS of the two views reconcile; individual lines across the two views do not have to, and a sign difference here is expected rather than a defect.",
+      "affects": [
+        "factor_view.market",
+        "decision_view.macro"
+      ]
+    },
+    {
+      "id": "timing_term_not_implemented",
+      "severity": "info",
+      "text": "A market-timing term (Henriksson-Merton or Treynor-Mazuy) would split the factor view's market line into average beta and timing, making it directly comparable with the decision view's macro layer. It is not implemented.",
+      "affects": [
+        "factor_view.market",
+        "decision_view.macro"
+      ]
+    },
+    {
+      "id": "arithmetic_intervals",
+      "severity": "info",
+      "text": "Confidence intervals are on annualised arithmetic means of monthly contributions; headline lines are geometrically linked cumulative figures.",
+      "affects": [
+        "decision_view",
+        "factor_view"
+      ]
+    }
+  ],
+  "run": {
+    "package_version": "0.2.0",
+    "linking": "carino",
+    "brinson_variant": "fachler",
+    "factor_order": [
+      "market",
+      "size",
+      "value",
+      "momentum",
+      "quality",
+      "low_volatility"
+    ],
+    "data_dir": "/content/attribution_engine/sample_data",
+    "inputs": {
+      "holdings": "holdings.csv sha256:f577bbff1dad75cce0e0cee0e08e67467c2708ad6ddf60c81d10223c6b01e854",
+      "benchmark": "benchmark.csv sha256:269054546f05fbfd5cf82aa90eed5d9eb834581ff7f4a18dd6726e682b81f09f",
+      "prices": "prices.csv sha256:a5c4aaa36641bbf8b8251db8d4921deab8192ed522caa6745fe0320b691aa951",
+      "portfolio_returns": "portfolio_returns.csv sha256:679877e4de68232639940e7acdf04478ae9df1f0f987b9a9fceeef9413392d73",
+      "factor_returns": "factor_returns.csv sha256:11ba2ea6ed9b61ff429d391da3ef7ef0bf521a4496c88d6c8af03036ed2977ec",
+      "cash_returns": "cash_returns.csv sha256:41b71fea11e43152befe894c5c8d915e994b08e31097ac08c57d1df7d1e078f2",
+      "regime_series": "regime_series.csv sha256:e68b0d854a2217b89eff2414e6a9db03c3b033944509e818c27100dac7acfcb9",
+      "policy": "policy.json sha256:802693a4a7db38b420ab4f11b89af84add1c86284647dcb228452937658a0520"
+    },
+    "generated_at_utc": "2026-10-29T11:31:55"
+  },
+  "intervals": [
+    {
+      "line": "decision_view.macro",
+      "point": 0.015617423224243575,
+      "lower": -0.006799829319763788,
+      "upper": 0.047839571792187875,
+      "level": 0.95,
+      "spans_zero": true,
+      "basis": "95% block-bootstrap interval on the annualised arithmetic mean of monthly contributions"
+    },
+    {
+      "line": "decision_view.allocation",
+      "point": 0.006176121332948472,
+      "lower": -0.014750521030447479,
+      "upper": 0.02820562506037964,
+      "level": 0.95,
+      "spans_zero": true,
+      "basis": "95% block-bootstrap interval on the annualised arithmetic mean of monthly contributions"
+    },
+    {
+      "line": "decision_view.selection",
+      "point": 0.03158146257966936,
+      "lower": -0.043367952904728335,
+      "upper": 0.10918301022840533,
+      "level": 0.95,
+      "spans_zero": true,
+      "basis": "95% block-bootstrap interval on the annualised arithmetic mean of monthly contributions"
+    },
+    {
+      "line": "decision_view.interaction",
+      "point": -0.0017018628394490191,
+      "lower": -0.019129820293776363,
+      "upper": 0.01606168688584564,
+      "level": 0.95,
+      "spans_zero": true,
+      "basis": "95% block-bootstrap interval on the annualised arithmetic mean of monthly contributions"
+    },
+    {
+      "line": "factor_view.market",
+      "point": -0.0054318301946449255,
+      "lower": -0.01270344597559231,
+      "upper": 0.01707376139802777,
+      "level": 0.95,
+      "spans_zero": true,
+      "basis": "95% block-bootstrap interval on the annualised arithmetic mean of monthly contributions"
+    },
+    {
+      "line": "factor_view.size",
+      "point": 0.0343410013113281,
+      "lower": -0.03464592061417969,
+      "upper": 0.1138189223862499,
+      "level": 0.95,
+      "spans_zero": true,
+      "basis": "95% block-bootstrap interval on the annualised arithmetic mean of monthly contributions"
+    },
+    {
+      "line": "factor_view.value",
+      "point": 0.0006844729096690148,
+      "lower": -0.009681073888230257,
+      "upper": 0.013101184946805903,
+      "level": 0.95,
+      "spans_zero": true,
+      "basis": "95% block-bootstrap interval on the annualised arithmetic mean of monthly contributions"
+    },
+    {
+      "line": "factor_view.momentum",
+      "point": 0.0016724875009684823,
+      "lower": -0.007885457121405402,
+      "upper": 0.012733861798766719,
+      "level": 0.95,
+      "spans_zero": true,
+      "basis": "95% block-bootstrap interval on the annualised arithmetic mean of monthly contributions"
+    },
+    {
+      "line": "factor_view.quality",
+      "point": -0.0053137892788029184,
+      "lower": -0.01850128068432629,
+      "upper": 0.0018564073720469688,
+      "level": 0.95,
+      "spans_zero": true,
+      "basis": "95% block-bootstrap interval on the annualised arithmetic mean of monthly contributions"
+    },
+    {
+      "line": "factor_view.low_volatility",
+      "point": -0.0006551758565751774,
+      "lower": -0.004747048550372089,
+      "upper": 0.006979261802342571,
+      "level": 0.95,
+      "spans_zero": true,
+      "basis": "95% block-bootstrap interval on the annualised arithmetic mean of monthly contributions"
+    },
+    {
+      "line": "factor_view.specific_return",
+      "point": 0.006557002282291717,
+      "lower": -0.044440380450763456,
+      "upper": 0.04624354361786637,
+      "level": 0.95,
+      "spans_zero": true,
+      "basis": "95% block-bootstrap interval on the annualised arithmetic mean of monthly contributions"
+    },
+    {
+      "line": "totals.active",
+      "point": 0.03185416867423496,
+      "lower": -0.04223977870557756,
+      "upper": 0.11053750737225482,
+      "level": 0.95,
+      "spans_zero": true,
+      "basis": "95% block-bootstrap interval on the annualised arithmetic mean of monthly contributions"
+    }
+  ],
+  "factor_detail": {
+    "order": [
+      "market",
+      "size",
+      "value",
+      "momentum",
+      "quality",
+      "low_volatility"
+    ],
+    "n_obs": 60,
+    "r_squared": 0.714537176967905,
+    "adj_r_squared": 0.6822206309642715,
+    "durbin_watson": 1.7196105613953974,
+    "tracking_error": 0.07593337708824315,
+    "residual_volatility": 0.04280510478023469,
+    "condition_number_raw": 2.542206958095463,
+    "condition_number_used": 1.1218505356768078,
+    "vif_raw": {
+      "market": 1.0193041201394637,
+      "size": 1.1010484114508914,
+      "value": 1.1111985611634807,
+      "momentum": 1.1247147667313135,
+      "quality": 1.1806454363097334,
+      "low_volatility": 1.0720520805521652
+    },
+    "vif_used": {
+      "market": 1.0011455206762305,
+      "size": 1.0025059031396744,
+      "value": 1.0000272692935017,
+      "momentum": 1.0001152190915397,
+      "quality": 1.003067692788636,
+      "low_volatility": 1.0003148131809214
+    },
+    "exposure_lower": {
+      "market": -0.17229435566783174,
+      "size": 0.5810554828450484,
+      "value": 0.038901130356040904,
+      "momentum": 0.09578838659723211,
+      "quality": -0.2673348276680931,
+      "low_volatility": -0.1855128859469961
+    },
+    "exposure_upper": {
+      "market": 0.07295496556646025,
+      "size": 0.8447560535015459,
+      "value": 0.32649368633324316,
+      "momentum": 0.25376129078521625,
+      "quality": 0.05965439715781927,
+      "low_volatility": 0.18109274479011195
+    }
+  },
+  "rolling": {
+    "window_months": 36,
+    "window_end": [
+      "2024-09-30",
+      "2024-10-31",
+      "2024-11-30",
+      "2024-12-31",
+      "2025-01-31",
+      "2025-02-28",
+      "2025-03-31",
+      "2025-04-30",
+      "2025-05-31",
+      "2025-06-30",
+      "2025-07-31",
+      "2025-08-31",
+      "2025-09-30",
+      "2025-10-31",
+      "2025-11-30",
+      "2025-12-31",
+      "2026-01-31",
+      "2026-02-28",
+      "2026-03-31",
+      "2026-04-30",
+      "2026-05-31",
+      "2026-06-30",
+      "2026-07-31",
+      "2026-08-31",
+      "2026-09-30"
+    ],
+    "exposures": {
+      "market": [
+        -0.0728930177945531,
+        -0.09595696295147166,
+        -0.09210086120752176,
+        -0.08503175545057651,
+        -0.08891348090490908,
+        -0.11578108098975029,
+        -0.09666086240377059,
+        -0.09503505386772892,
+        -0.10055332067226369,
+        -0.09592747648839695,
+        -0.0907793078296001,
+        -0.10437944286259038,
+        -0.10785316840245697,
+        -0.10540468655519664,
+        -0.11865315456485359,
+        -0.13128295094380238,
+        -0.1413004518159981,
+        -0.1414893672760137,
+        -0.1353337210915267,
+        -0.11993639598312766,
+        -0.11576805593905831,
+        -0.11387275379048911,
+        -0.11780563753230766,
+        -0.11458102757107708,
+        -0.1065444145536617
+      ],
+      "size": [
+        0.7436600649492677,
+        0.7470395676286532,
+        0.7430189638876907,
+        0.7308591591427722,
+        0.6782073320620756,
+        0.7417380940592352,
+        0.7651776645149615,
+        0.7000871707311203,
+        0.6901169202119916,
+        0.7040693170147931,
+        0.698526773653312,
+        0.6859822642133739,
+        0.6593043990268805,
+        0.6472980974973161,
+        0.6473269208747408,
+        0.6446858223892562,
+        0.6417081217828692,
+        0.6447058551567633,
+        0.6431627520802804,
+        0.6547236205025191,
+        0.6417826099521662,
+        0.6296255357315022,
+        0.5960288915190166,
+        0.5911204039340656,
+        0.5896031013060943
+      ],
+      "value": [
+        0.2808138534311709,
+        0.22226460715112428,
+        0.23398902642527608,
+        0.23845721795521277,
+        0.2560638306359066,
+        0.21930547926651905,
+        0.20992109717222476,
+        0.16275965806557194,
+        0.1193513363360427,
+        0.12812087013091344,
+        0.12135350256860467,
+        0.16465104234249267,
+        0.17461002332946662,
+        0.15314900756870764,
+        0.15845319305822095,
+        0.168486172858625,
+        0.1655382135306003,
+        0.16722105202823004,
+        0.15483351371444407,
+        0.13220529946799228,
+        0.08170054865124791,
+        0.08866705821154784,
+        0.11743280526096368,
+        0.1179190176189586,
+        0.1156351754026955
+      ],
+      "momentum": [
+        0.16906984350643384,
+        0.219540413335572,
+        0.17092920739510162,
+        0.16566845986167697,
+        0.17189323363119413,
+        0.17683251384157472,
+        0.2126537740052284,
+        0.2153661835071103,
+        0.21605206360068221,
+        0.21549496932770507,
+        0.21695284506941792,
+        0.21559538222604432,
+        0.2168408328088953,
+        0.21312927605953846,
+        0.20845023304348664,
+        0.20702298867255114,
+        0.20968319924581996,
+        0.20758053582419655,
+        0.20294703347321985,
+        0.23620048125974377,
+        0.22189391342618245,
+        0.21574878271494402,
+        0.20145532669887328,
+        0.1992264316149244,
+        0.19989360552133903
+      ],
+      "quality": [
+        -0.017577897967554185,
+        -0.028428178316803304,
+        -0.027817089301309605,
+        -0.02883851195663649,
+        -0.016296541883496524,
+        -0.05226736614927212,
+        -0.05593863367922075,
+        -0.048480257740582205,
+        -0.04377648094269504,
+        -0.02193525883910659,
+        -0.01664868953493044,
+        -0.03265240228397182,
+        -0.03707589027552327,
+        -0.04047049627863547,
+        -0.11559204587437268,
+        -0.11222296183887359,
+        -0.11305094289795495,
+        -0.11914280177345826,
+        -0.13035913677484665,
+        -0.11203305095794791,
+        -0.11856754368525113,
+        -0.12867993483564755,
+        -0.1831770740778955,
+        -0.17360400671117407,
+        -0.17651653133465595
+      ],
+      "low_volatility": [
+        0.09990261083820279,
+        0.14714174155646975,
+        0.14352970619391356,
+        0.13931335775608836,
+        0.14369384310127759,
+        0.11251178143100737,
+        0.07288625015668335,
+        0.1071789346082336,
+        0.07170996474506364,
+        0.0412848155117342,
+        0.06375723207602857,
+        0.04945556670976532,
+        0.03883771792682171,
+        0.01898514886829287,
+        0.06963257925760474,
+        0.06586271815253598,
+        0.048409285954941914,
+        0.05124161083738915,
+        0.05124325449773166,
+        -0.01643446320053596,
+        0.016212336068690242,
+        0.011406657792391903,
+        0.04769445968849462,
+        0.06461898779760447,
+        0.06565302049218942
+      ]
+    }
+  },
+  "output_schema_version": "1.1.0"
+}
